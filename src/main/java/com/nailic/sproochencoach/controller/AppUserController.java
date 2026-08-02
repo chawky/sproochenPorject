@@ -1,23 +1,61 @@
 package com.nailic.sproochencoach.controller;
 
-import com.nailic.sproochencoach.dto.AppUserDto;
-import com.nailic.sproochencoach.service.AppUserRepoService;
-import java.util.List;
+import com.nailic.sproochencoach.dto.RequestUserDto;
+import com.nailic.sproochencoach.dto.ResponseUserDto;
+import com.nailic.sproochencoach.dto.SendOtpRequest;
+import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.repository.AppUserRepo;
+import com.nailic.sproochencoach.service.AppUserService;
+import com.nailic.sproochencoach.service.EmailAndOtpService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin
+@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class AppUserController {
-  private final AppUserRepoService appUserRepoService;
+  private final AppUserService appUserRepoService;
+  private final AppUserRepo appUserRepo;
+  private final EmailAndOtpService emailService;
+
   @GetMapping("getUsers")
-  public ResponseEntity<List<AppUserDto>> findAll() {
+  public ResponseEntity<List<RequestUserDto>> findAll() {
     return ResponseEntity.ok(appUserRepoService.findAll());
+  }
+
+  @GetMapping("getUser/{id}")
+  public ResponseEntity<ResponseUserDto> findById(@PathVariable int id) {
+    ResponseUserDto appUserDto = appUserRepoService.findById(id);
+    if (appUserDto == null) {
+      return ResponseEntity.notFound().build();
+    }
+    return ResponseEntity.ok(appUserDto);
+  }
+
+  @PostMapping("/addUser")
+  public ResponseEntity<RequestUserDto> createUser(@RequestBody RequestUserDto appUserDto) {
+    AppUser user =
+        appUserRepo.findByUsernameAndEmail(appUserDto.getUsername(), appUserDto.getEmail());
+    if (user != null) {
+      return ResponseEntity.notFound().build();
+    }
+    return ResponseEntity.ok(appUserRepoService.addUser(appUserDto));
+  }
+
+  @PostMapping("/login")
+  public ResponseEntity<ResponseUserDto> login(@RequestBody RequestUserDto appUserDto) {
+    return ResponseEntity.ok(appUserRepoService.login(appUserDto));
+  }
+  @PostMapping("/sendOtp")
+  public ResponseEntity<String> sendOtp(
+          @RequestBody SendOtpRequest request
+  ) {
+    emailService.sendEmailAndSaveOtp(request.getEmail());
+
+    return ResponseEntity.ok("If the email exists, a verification code has been sent");
   }
 }

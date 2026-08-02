@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class RoleService {
   public final RoleRepo roleRepo;
 
-  public AppRole createAppRole(String roleName) {
+  public AppRole getRoleByName(String roleName) {
     return roleRepo.findByName(roleName);
   }
 }

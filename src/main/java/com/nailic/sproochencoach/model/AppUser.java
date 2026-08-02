@@ -1,21 +1,18 @@
 package com.nailic.sproochencoach.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
-import java.util.HashSet;
-import java.util.Set;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,21 +20,75 @@ import lombok.Setter;
 @Setter
 @Table(name = "app_users")
 @Entity
-public class AppUser extends BaseModel{
+public class AppUser extends BaseModel implements UserDetails {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Integer id;
-  @Column
-  private String username;
-  @Column
-  private String password;
-  @Column
-  private String email;
+
+  @Column private String username;
+  @Column private String password;
+  @Column private String email;
+  @Column(nullable = false)
+  private boolean enabled = false;
   @ManyToMany(fetch = FetchType.LAZY)
   @JoinTable(
       name = "app_user_roles",
       joinColumns = @JoinColumn(name = "user_id"),
-      inverseJoinColumns = @JoinColumn(name = "role_id")
-  )
+      inverseJoinColumns = @JoinColumn(name = "role_id"))
   private Set<AppRole> roles = new HashSet<>();
+
+  /**
+   * Returns the authorities granted to the user. Cannot return <code>null</code>.
+   *
+   * @return the authorities, sorted by natural key (never <code>null</code>)
+   */
+  @Override
+  public Collection<? extends GrantedAuthority> getAuthorities() {
+    return this.roles.stream()
+        .map(m -> new SimpleGrantedAuthority("ROLE_"+m.getName()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Indicates whether the user's account has expired. An expired account cannot be authenticated.
+   *
+   * @return <code>true</code> if the user's account is valid (ie non-expired), <code>false</code>
+   *     if no longer valid (ie expired)
+   */
+  @Override
+  public boolean isAccountNonExpired() {
+    return true;
+  }
+
+  /**
+   * Indicates whether the user is locked or unlocked. A locked user cannot be authenticated.
+   *
+   * @return <code>true</code> if the user is not locked, <code>false</code> otherwise
+   */
+  @Override
+  public boolean isAccountNonLocked() {
+    return true;
+  }
+
+  /**
+   * Indicates whether the user's credentials (password) has expired. Expired credentials prevent
+   * authentication.
+   *
+   * @return <code>true</code> if the user's credentials are valid (ie non-expired), <code>false
+   *     </code> if no longer valid (ie expired)
+   */
+  @Override
+  public boolean isCredentialsNonExpired() {
+    return true;
+  }
+
+  /**
+   * Indicates whether the user is enabled or disabled. A disabled user cannot be authenticated.
+   *
+   * @return <code>true</code> if the user is enabled, <code>false</code> otherwise
+   */
+  @Override
+  public boolean isEnabled() {
+    return enabled;
+  }
 }

@@ -11,10 +11,10 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
-public class AppUserDto {
+public class ResponseUserDto {
   private Integer id;
   private String username;
-  private String password;
   private String email;
   private Set<String> roles = new HashSet<>();
+  private String jwt;
 }

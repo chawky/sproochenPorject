@@ -1,13 +1,14 @@
 package com.nailic.sproochencoach.repository;
 
 import com.nailic.sproochencoach.model.AppRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 import java.util.Set;
-import org.springframework.data.repository.CrudRepository;
 
-public interface RoleRepo extends CrudRepository<AppRole, Integer> {
+public interface RoleRepo extends JpaRepository<AppRole, Integer> {
 
   AppRole findByName(String name);
 
-  List<AppRole> findAllByName(Set<String> roles);
+  List<AppRole> findByNameIn(Set<String> roles);
 }
