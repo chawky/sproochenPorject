@@ -47,7 +47,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/users/login",
                                 "/api/users/addUser",
-                                "/api/users/sendOtp")
+                                "/api/users/sendOtp",
+                                "/api/users/resendOtp",
+                                "/api/users/verifyOtp")
                         .permitAll()
                         .anyRequest().authenticated()
                 ).addFilterBefore(

@@ -1,12 +1,12 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.model.AppUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -21,10 +21,10 @@ public class JwtService {
   @Value("${security.jwt.expiration-time}")
   private long jwtExpiration;
 
-  public String generateToken(UserDetails user) {
+  public String generateToken(AppUser user) {
     return Jwts.builder()
         .signWith(getSigningKey())
-        .subject(user.getUsername())
+        .subject(user.getEmail())
         .issuedAt(new Date())
         .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
         .compact();
@@ -48,8 +48,8 @@ public class JwtService {
     return Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token).getPayload();
   }
 
-  public boolean isTokenValid(String jwt, String userName, UserDetails user) {
-    if (!userName.equals(user.getUsername())) {
+  public boolean isTokenValid(String jwt, String email, AppUser user) {
+    if (!email.equals(user.getEmail())) {
       return false;
     }
     Claims claims = extractAllClaims(jwt);

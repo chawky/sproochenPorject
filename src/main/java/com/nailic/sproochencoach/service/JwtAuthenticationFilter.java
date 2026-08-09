@@ -1,24 +1,24 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.model.AppUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JwtService jwtService;
-  private final UserDetailsService userDetailsService;
+  private final CustomUserDetailsService customUserDetailsService;
 
   /**
    * Same contract as for {@code doFilter}, but guaranteed to be just invoked once per request
@@ -44,10 +44,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     String jwt = header.substring(7);
-    String userName = jwtService.extractUsername(jwt);
-    if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      UserDetails user = userDetailsService.loadUserByUsername(userName);
-      if (jwtService.isTokenValid(jwt, userName, user)) {
+    String email = jwtService.extractUsername(jwt);
+    if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+      AppUser user = customUserDetailsService.loadUserByUsername(email);
+      if (jwtService.isTokenValid(jwt, email, user)) {
         UsernamePasswordAuthenticationToken authenticationToken =
             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         authenticationToken.setDetails(new WebAuthenticationDetails(request));

@@ -6,6 +6,7 @@ import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.RoleRepo;
+import com.nailic.sproochencoach.exceptions.UserAlreadyExistsException;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,18 +33,28 @@ public class AppUserService {
     private final EmailAndOtpService emailAndOtpService;
     private final AuthenticationManager authenticationManager;
 
-    public List<RequestUserDto> findAll() {
+    public List<ResponseUserDto> findAll() {
         return appUserRepo.findAll().stream()
-                .map(s -> mapper.map(s, RequestUserDto.class))
+                .map(s -> mapper.map(s, ResponseUserDto.class))
                 .collect(Collectors.toList());
     }
 
-    public RequestUserDto addUser(RequestUserDto appUserDto) {
-        AppUser user = mapper.map(appUserDto, AppUser.class);
+    public ResponseUserDto addUser(RequestUserDto request) {
+        if (appUserRepo.existsByUsername(request.getUsername())) {
+            throw new UserAlreadyExistsException("Username already exists");
+        }
+
+        if (appUserRepo.existsByEmail(request.getEmail())) {
+            throw new UserAlreadyExistsException("Email already exists");
+        }
+
+        AppUser user = mapper.map(request, AppUser.class);
         user.setRoles(Set.of(roleRepo.findByName("ADMIN")));
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        AppUser userSaved = appUserRepo.save(user);
-        return mapper.map(userSaved, RequestUserDto.class);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+
+        AppUser savedUser = appUserRepo.save(user);
+
+        return mapper.map(savedUser, ResponseUserDto.class);
     }
 
     public RequestUserDto updateUser(RequestUserDto appUserDto) {
@@ -68,7 +79,7 @@ public class AppUserService {
 
     public ResponseUserDto login(RequestUserDto appUserDto) {
         Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getUsername(), appUserDto.getPassword()));
+                .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
         AppUser user = (AppUser) authentication.getPrincipal();
         ResponseUserDto userDto = mapper.map(user,
                 ResponseUserDto.class);
