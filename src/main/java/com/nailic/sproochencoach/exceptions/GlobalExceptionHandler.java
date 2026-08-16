@@ -10,11 +10,23 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 //This class contains methods that handle exceptions for all controllers.
 public class GlobalExceptionHandler {
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleUserAlreadyExists(
-            UserAlreadyExistsException exception
-    ) {
+    public ResponseEntity<ApiResponse<Void>> handleUserAlreadyExists(UserAlreadyExistsException exception) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+    @ExceptionHandler(OpenRouterError.class)
+    public ResponseEntity<ApiResponse<Void>> handleOpenRouterError(
+            OpenRouterError exception
+    ) {
+        return ResponseEntity
+                .status(exception.getStatusCode())
                 .body(
                         new ApiResponse<>(
                                 false,
