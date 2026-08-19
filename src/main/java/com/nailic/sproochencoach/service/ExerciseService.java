@@ -7,7 +7,7 @@ import com.nailic.sproochencoach.model.AIRoleEnum;
 import com.nailic.sproochencoach.model.AiBody;
 import com.nailic.sproochencoach.model.MessageBody;
 import com.nailic.sproochencoach.model.OpenRouterResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -20,7 +20,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class ExerciseService {
 
     @Value("${ai.openrouter.free.model}")
@@ -34,9 +33,16 @@ public class ExerciseService {
 
     @Value("${ai.system.content}")
     private String systemContent;
-
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+
+    public ExerciseService(
+            @Qualifier("openRouterRestClient") RestClient restClient,
+            ObjectMapper objectMapper
+    ) {
+        this.restClient = restClient;
+        this.objectMapper = objectMapper;
+    }
 
     public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
 
