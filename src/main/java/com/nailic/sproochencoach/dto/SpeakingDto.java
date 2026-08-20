@@ -4,5 +4,6 @@ import lombok.Data;
 
 @Data
 public class SpeakingDto extends GeneratedExerciseDto{
-    private String questionsTranslations;
+    private String questionTranslation;
+    private byte[] audio;
 }

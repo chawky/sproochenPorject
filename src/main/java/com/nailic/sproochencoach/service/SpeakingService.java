@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.SpeakingDto;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
+import com.nailic.sproochencoach.dto.TtsRequest;
 import com.nailic.sproochencoach.exceptions.OpenRouterError;
 import com.nailic.sproochencoach.model.AIRoleEnum;
 import com.nailic.sproochencoach.model.AiBody;
@@ -40,19 +41,23 @@ public class SpeakingService {
     private String grokURL;
     @Value("${ai.openrouter.base-url}")
     private String baseUrl;
-
+    @Value("${ai.elevenlabs.voice-id}")
+    private String voiceId;
     private final RestClient openRouterRestClient;
     private final RestClient groqRestClient;
     private final ObjectMapper objectMapper;
+    private final RestClient ttsRestClient;
 
     public SpeakingService(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("groqRestClient") RestClient groqRestClient,
+            @Qualifier("ttsRestClient") RestClient ttsRestClient,
             ObjectMapper objectMapper
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.groqRestClient = groqRestClient;
         this.objectMapper = objectMapper;
+        this.ttsRestClient = ttsRestClient;
     }
 
     public SpeakingDto generateSpeakingPrompt(ExerciseRequestDto exerciseRequestDto) {
@@ -164,13 +169,29 @@ public class SpeakingService {
                 .get(0)
                 .getMessage()
                 .getContent();
+
+
         System.out.println("===== OPENROUTER EVALUATION =====");
         System.out.println(content);
         try {
-            return objectMapper.readValue(
+            SpeakingDto result = objectMapper.readValue(
                     content,
                     SpeakingDto.class
             );
+            TtsRequest ttsRequest = new TtsRequest(
+                    result.getQuestion(),
+                    "eleven_multilingual_v2"
+            );
+
+            byte[] audio = ttsRestClient.post()
+                    .uri("/text-to-speech/" + voiceId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.valueOf("audio/mpeg"))
+                    .body(ttsRequest)
+                    .retrieve()
+                    .body(byte[].class);
+            result.setAudio(audio);
+            return  result;
         } catch (JacksonException exception) {
 
             System.out.println("===== JSON PARSING ERROR =====");
@@ -186,6 +207,9 @@ public class SpeakingService {
             );
         }
     }
+
+
+
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio) {
         String transcription = transcribeAudio(audio);
@@ -225,13 +249,14 @@ public class SpeakingService {
                 Evaluation rules:
                 - "score" must be an integer from 0 to 100.
                 - "transcript" must contain exactly the transcript supplied above.
-                - "feedback" should briefly explain what was done well and what should improve.
+                - "feedback" should briefly explain what was done well and what should improve MUST always be written in English.
                 - "corrections" must contain corrected Luxembourgish sentences when mistakes exist.
                 - If there are no corrections, return an empty array.
                 - Use authentic Luxembourgish spelling and grammar.
                 - Never invent Luxembourgish words.
                 - Do not penalize the user for transcription mistakes unless the transcript clearly indicates a language mistake.
-                
+                - If there are no corrections, return an empty array.
+                - Use authentic Luxembourgish spelling and grammar for corrections.
                 JSON rules:
                 - Return only the JSON object.
                 - Do not include markdown.
@@ -340,7 +365,16 @@ public class SpeakingService {
         body.add("file", audio.getResource());
         body.add("model", "whisper-large-v3");
         body.add("response_format", "text");
-
+        body.add("language", "lb");
+        body.add(
+                "prompt",
+                "The speaker is speaking Luxembourgish (Lëtzebuergesch). " +
+                        "Transcribe exactly what is spoken in Luxembourgish. " +
+                        "Do not translate into English or German. " +
+                        "Use standard Luxembourgish spelling."+
+                        "This audio is Luxembourgish (Lëtzebuergesch). " +
+                        "Transcribe it in Luxembourgish and do not translate it."
+        );
         try {
             String transcription = groqRestClient.post()
                     .uri("/audio/transcriptions")
