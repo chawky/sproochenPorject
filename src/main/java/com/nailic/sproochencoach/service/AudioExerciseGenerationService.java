@@ -1,7 +1,8 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.dto.AudioExerciseDto;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
-import com.nailic.sproochencoach.dto.GeneratedExerciseDto;
+import com.nailic.sproochencoach.dto.TtsRequest;
 import com.nailic.sproochencoach.exceptions.OpenRouterError;
 import com.nailic.sproochencoach.model.AIRoleEnum;
 import com.nailic.sproochencoach.model.AiBody;
@@ -22,34 +23,44 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 
 @Service
-public class ExerciseService {
-    private static final Logger log = LoggerFactory.getLogger(ExerciseService.class);
+public class AudioExerciseGenerationService {
+    private static final Logger log = LoggerFactory.getLogger(AudioExerciseGenerationService.class);
 
     @Value("${ai.openrouter.free.model}")
     private String openrouterFreeModel;
-
-    @Value("${ai.openrouter.paid.model}")
-    private String openrouterPaidModel;
 
     @Value("${ai.completion.uri}")
     private String completionURI;
 
     @Value("${ai.system.content}")
     private String systemContent;
-    private final RestClient restClient;
+
+    @Value("${ai.elevenlabs.voice-id}")
+    private String voiceId;
+
+    private final RestClient openRouterRestClient;
+    private final RestClient ttsRestClient;
     private final ObjectMapper objectMapper;
 
-    public ExerciseService(
-            @Qualifier("openRouterRestClient") RestClient restClient,
+    public AudioExerciseGenerationService(
+            @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
+            @Qualifier("ttsRestClient") RestClient ttsRestClient,
             ObjectMapper objectMapper
     ) {
-        this.restClient = restClient;
+        this.openRouterRestClient = openRouterRestClient;
+        this.ttsRestClient = ttsRestClient;
         this.objectMapper = objectMapper;
     }
 
-    public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
+    public <T extends AudioExerciseDto> T generateAudioExercise(
+            ExerciseRequestDto exerciseRequestDto,
+            String promptTemplate,
+            Class<T> responseType,
+            String exerciseName
+    ) {
         log.debug(
-                "Generating text exercise. level={}, topic={}, type={}",
+                "Generating {}. level={}, topic={}, type={}",
+                exerciseName,
                 exerciseRequestDto.getLevel(),
                 exerciseRequestDto.getTopic(),
                 exerciseRequestDto.getType()
@@ -64,45 +75,19 @@ public class ExerciseService {
 
         MessageBody userMessageBody = new MessageBody();
         userMessageBody.setRole(AIRoleEnum.USER);
-        userMessageBody.setContent("""
-                Generate exactly ONE %s exercise
-                for level %s
-                about the topic %s.
-                
-                Make the exercise noticeably different each time.
-                Vary the vocabulary, sentence structure, verbs, time expressions,
-                and situation used in the exercise.
-                Avoid always using the most obvious examples for this topic.
-                
-                Return ONLY valid JSON.
-                
-                Use exactly this structure:
-                {
-                  "question": "...",
-                  "type": "%s",
-                  "options": [],
-                  "expectedAnswer": "...",
-                  "hint": "..."
-                }
-                
-                Rules:
-                - Do not include markdown.
-                - Do not include headings.
-                - Do not generate multiple exercises.
-                - Keep the exercise appropriate for the requested level.
-                """
-                .formatted(
-                        exerciseRequestDto.getType(),
+        userMessageBody.setContent(
+                promptTemplate.formatted(
                         exerciseRequestDto.getLevel(),
                         exerciseRequestDto.getTopic(),
                         exerciseRequestDto.getType()
-                ));
+                )
+        );
 
         aiBody.setMessages(
                 List.of(systemMessageBody, userMessageBody)
         );
 
-        OpenRouterResponse openRouterResponse = restClient.post()
+        OpenRouterResponse openRouterResponse = openRouterRestClient.post()
                 .uri(completionURI)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
@@ -111,7 +96,6 @@ public class ExerciseService {
                 .onStatus(
                         HttpStatusCode::isError,
                         (request, response) -> {
-
                             OpenRouterResponse errorResponse =
                                     objectMapper.readValue(
                                             response.getBody(),
@@ -119,7 +103,7 @@ public class ExerciseService {
                                     );
 
                             if (errorResponse.getError() == null) {
-                                log.error("OpenRouter returned unknown error while generating text exercise. status={}", response.getStatusCode().value());
+                                log.error("OpenRouter returned unknown error while generating {}. status={}", exerciseName, response.getStatusCode().value());
                                 throw new OpenRouterError(
                                         response.getStatusCode().value(),
                                         "OpenRouter returned an unknown error"
@@ -127,7 +111,8 @@ public class ExerciseService {
                             }
 
                             log.error(
-                                    "OpenRouter returned error while generating text exercise. code={}, message={}",
+                                    "OpenRouter returned error while generating {}. code={}, message={}",
+                                    exerciseName,
                                     errorResponse.getError().getCode(),
                                     errorResponse.getError().getMessage()
                             );
@@ -143,7 +128,7 @@ public class ExerciseService {
         String invalidReason = OpenRouterResponseValidator.invalidReason(openRouterResponse);
         if (invalidReason != null) {
 
-            log.error("OpenRouter returned invalid text exercise response structure. reason={}", invalidReason);
+            log.error("OpenRouter returned invalid {} response structure. reason={}", exerciseName, invalidReason);
 
             throw new OpenRouterError(
                     HttpStatus.BAD_GATEWAY.value(),
@@ -157,18 +142,42 @@ public class ExerciseService {
                 .getMessage()
                 .getContent();
 
-        log.debug("OpenRouter text exercise response: {}", content);
+        log.debug("OpenRouter {} response: {}", exerciseName, content);
 
         try {
-            GeneratedExerciseDto exercise = objectMapper.readValue(
+            T result = objectMapper.readValue(
                     content,
-                    GeneratedExerciseDto.class
+                    responseType
             );
-            log.debug("Text exercise generated successfully. type={}", exercise.getType());
-            return exercise;
+
+            log.debug("{} JSON parsed successfully. questionLength={}", exerciseName, result.getQuestion() == null ? 0 : result.getQuestion().length());
+
+            TtsRequest ttsRequest = new TtsRequest(
+                    result.getQuestion(),
+                    "eleven_multilingual_v2"
+            );
+
+            byte[] audio;
+            try {
+                audio = ttsRestClient.post()
+                        .uri("/text-to-speech/" + voiceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.valueOf("audio/mpeg"))
+                        .body(ttsRequest)
+                        .retrieve()
+                        .body(byte[].class);
+            } catch (RuntimeException exception) {
+                log.error("ElevenLabs TTS request failed while generating {}", exerciseName, exception);
+                throw exception;
+            }
+
+            result.setAudio(audio);
+            log.debug("{} audio generated successfully. audioBytes={}", exerciseName, audio == null ? 0 : audio.length);
+            return result;
         } catch (JacksonException exception) {
             log.error(
-                    "Failed to parse OpenRouter text exercise JSON. jacksonMessage={}, aiReturned={}",
+                    "Failed to parse OpenRouter {} JSON. jacksonMessage={}, aiReturned={}",
+                    exerciseName,
                     exception.getMessage(),
                     content,
                     exception
@@ -176,7 +185,7 @@ public class ExerciseService {
 
             throw new OpenRouterError(
                     HttpStatus.BAD_GATEWAY.value(),
-                    "OpenRouter returned invalid exercise JSON"
+                    "OpenRouter returned invalid " + exerciseName + " JSON"
             );
         }
     }

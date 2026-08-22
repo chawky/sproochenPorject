@@ -6,6 +6,8 @@ import com.nailic.sproochencoach.model.Otp;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.OtpRepo;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -21,6 +23,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Transactional
 @RequiredArgsConstructor
 public class EmailAndOtpService {
+    private static final Logger log = LoggerFactory.getLogger(EmailAndOtpService.class);
+
     private final OtpRepo otpRepo;
     private final AppUserRepo appUserRepo;
     private final JavaMailSender mailSender;
@@ -30,9 +34,12 @@ public class EmailAndOtpService {
     private long expirationOtp;
 
     public void sendEmailAndSaveOtp(String to) {
+        log.debug("Preparing verification OTP email for {}", maskEmail(to));
+
         AppUser user = appUserRepo.findByEmail(to).orElse(null);
 
         if (user == null) {
+            log.debug("OTP email request ignored because user does not exist: {}", maskEmail(to));
             return;
         }
 
@@ -79,44 +86,62 @@ public class EmailAndOtpService {
                         expirationMinutes == 1 ? "" : "s"
                 ));
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+            log.debug("Verification OTP email sent for user id {}", user.getId());
+        } catch (RuntimeException exception) {
+            log.error("Failed to send verification OTP email for user id {}", user.getId(), exception);
+            throw exception;
+        }
     }
 
     public Boolean verifyOtp(VerifyOtpRequest request) {
+        log.debug("Verifying OTP for {}", maskEmail(request.getEmail()));
+
         AppUser user = appUserRepo.findByEmail(request.getEmail()).orElse(null);
         if (user == null) {
+            log.warn("OTP verification failed because user does not exist: {}", maskEmail(request.getEmail()));
             return false;
         }
         Otp otp = otpRepo.findByUser(user)
                 .orElse(null);
         if (otp == null) {
+            log.warn("OTP verification failed because no OTP exists for user id {}", user.getId());
             return false;
         }
         if (otp.getAttempts() >= 5) {
+            log.warn("OTP verification rejected because max attempts reached for user id {}", user.getId());
             return false;
         }
         LocalDateTime expirationTime =
                 otp.getOtpCreationDate()
                         .plus(Duration.ofMillis(expirationOtp));
         if (LocalDateTime.now().isAfter(expirationTime)) {
+            log.warn("OTP verification failed because OTP expired for user id {}", user.getId());
             return false;
         }
         if (otp.getOtp() != request.getOtp()) {
             otp.setAttempts(otp.getAttempts() + 1);
             otpRepo.save(otp);
+            log.warn("OTP verification failed because code was invalid for user id {}. Attempts: {}", user.getId(), otp.getAttempts());
             return false;
         }
         user.setEnabled(true);
         appUserRepo.save(user);
         otpRepo.delete(otp);
 
+        log.debug("OTP verification succeeded for user id {}", user.getId());
+
         return true;
     }
 
     public void resendEmailAndSaveOtp(String email) {
+        log.debug("Preparing OTP resend email for {}", maskEmail(email));
+
         AppUser user = appUserRepo.findByEmail(email).orElse(null);
 
         if (user == null) {
+            log.warn("OTP resend failed because user does not exist: {}", maskEmail(email));
             throw new UsernameNotFoundException("User not found");
         }
 
@@ -168,6 +193,25 @@ public class EmailAndOtpService {
                         expirationMinutes == 1 ? "" : "s"
                 ));
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+            log.debug("OTP resend email sent for user id {}", user.getId());
+        } catch (RuntimeException exception) {
+            log.error("Failed to send OTP resend email for user id {}", user.getId(), exception);
+            throw exception;
+        }
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "<blank>";
+        }
+
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) {
+            return "***";
+        }
+
+        return email.charAt(0) + "***" + email.substring(atIndex);
     }
 }

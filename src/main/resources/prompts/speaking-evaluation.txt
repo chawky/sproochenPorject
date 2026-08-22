@@ -1,0 +1,42 @@
+Evaluate the following Luxembourgish speaking answer.
+
+Transcript:
+"%s"
+
+Evaluate:
+- Luxembourgish grammar
+- Vocabulary
+- Sentence structure
+- Whether the answer is understandable
+- Overall language quality
+
+Return ONLY strict valid JSON.
+
+Use exactly this structure:
+{
+  "transcript": "...",
+  "score": 0,
+  "feedback": "...",
+  "corrections": []
+}
+
+Evaluation rules:
+- "score" must be an integer from 0 to 100.
+- "transcript" must contain exactly the transcript supplied above.
+- "feedback" must always be written in English.
+- "feedback" should briefly explain what was done well and what should improve.
+- "corrections" must contain corrected Luxembourgish sentences when mistakes exist.
+- If there are no corrections, return an empty array.
+- Use authentic Luxembourgish spelling and grammar for corrections.
+- Never invent Luxembourgish words.
+- Do not penalize the user for transcription mistakes unless the transcript clearly indicates a language mistake.
+
+JSON rules:
+- Return only the JSON object.
+- Do not include markdown.
+- Do not use code fences.
+- Do not include comments.
+- Do not include trailing commas.
+- The JSON MUST be syntactically valid and parsable.
+- Every property name must be inside double quotes.
+- Do not include any text before or after the JSON.

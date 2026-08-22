@@ -1,0 +1,44 @@
+Generate exactly ONE listening comprehension exercise
+for level %s
+about the topic %s.
+
+Requirements:
+- The listening text MUST be written in authentic Luxembourgish (Lëtzebuergesch).
+- Keep the listening text around 30 to 60 seconds when spoken aloud.
+- Use standard Luxembourgish spelling and grammar.
+- Never invent Luxembourgish words.
+- Never imitate Luxembourgish by modifying German, French, Dutch, or other languages.
+- Keep the exercise appropriate for the requested CEFR level.
+- Make the exercise noticeably different each time.
+- Vary vocabulary, sentence structure, verbs, time expressions, and situations.
+- Avoid always using the most obvious examples for the topic.
+- Keep the listening text short enough for an MVP audio clip.
+
+Return ONLY strict valid JSON.
+
+Use exactly this structure:
+{
+  "question": "...",
+  "type": "%s",
+  "options": [],
+  "expectedAnswer": "...",
+  "hint": "...",
+  "questionTranslation": "..."
+}
+
+Field rules:
+- "question" must contain the Luxembourgish listening text.
+- "expectedAnswer" must contain the correct answer or a model answer.
+- "hint" must briefly help the learner understand the listening task.
+- "options" must be an empty array unless the requested type needs answer choices.
+- "questionTranslation" is required and must contain the English translation of "question".
+
+JSON rules:
+- Return only the JSON object.
+- Do not include markdown.
+- Do not use code fences.
+- Do not include comments.
+- Do not include trailing commas.
+- The JSON MUST be syntactically valid and parsable.
+- Every property name must be inside double quotes.
+- Do not include any text before or after the JSON.

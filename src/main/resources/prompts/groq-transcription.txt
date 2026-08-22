@@ -1,0 +1,6 @@
+The speaker is speaking Luxembourgish (Lëtzebuergesch).
+Transcribe exactly what is spoken in Luxembourgish.
+Do not translate into English, German, French, or any other language.
+Use standard Luxembourgish spelling.
+Return only the transcript text.
+Do not add commentary, labels, timestamps, or explanations.

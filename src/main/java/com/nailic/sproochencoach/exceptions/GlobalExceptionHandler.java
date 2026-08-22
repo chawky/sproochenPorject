@@ -1,6 +1,8 @@
 package com.nailic.sproochencoach.exceptions;
 
 import com.nailic.sproochencoach.dto.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 //This class contains methods that handle exceptions for all controllers.
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserAlreadyExists(UserAlreadyExistsException exception) {
         return ResponseEntity
@@ -25,6 +29,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleOpenRouterError(
             OpenRouterError exception
     ) {
+        log.error(
+                "Handling OpenRouterError. statusCode={}, message={}",
+                exception.getStatusCode(),
+                exception.getMessage()
+        );
+
         return ResponseEntity
                 .status(exception.getStatusCode())
                 .body(

@@ -6,6 +6,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,8 @@ import java.util.Date;
 @Service
 @Transactional
 public class JwtService {
+  private static final Logger log = LoggerFactory.getLogger(JwtService.class);
+
   @Value("${security.jwt.secret-key}")
   private String secretKey;
 
@@ -22,6 +26,7 @@ public class JwtService {
   private long jwtExpiration;
 
   public String generateToken(AppUser user) {
+    log.debug("Generating JWT for user id {}", user.getId());
     return Jwts.builder()
         .signWith(getSigningKey())
         .subject(user.getEmail())
@@ -36,6 +41,7 @@ public class JwtService {
   }
 
   public String extractUsername(String jwt) {
+    log.debug("Extracting JWT subject");
     return Jwts.parser()
         .verifyWith(getSigningKey())
         .build()
@@ -50,12 +56,15 @@ public class JwtService {
 
   public boolean isTokenValid(String jwt, String email, AppUser user) {
     if (!email.equals(user.getEmail())) {
+      log.warn("JWT validation failed because subject does not match user email. userId={}", user.getId());
       return false;
     }
     Claims claims = extractAllClaims(jwt);
     if (claims.getExpiration().before(new Date())) {
+      log.warn("JWT validation failed because token is expired. userId={}", user.getId());
       return false;
     }
+    log.debug("JWT validation succeeded. userId={}", user.getId());
     return true;
   }
 }

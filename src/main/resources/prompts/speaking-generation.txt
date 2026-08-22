@@ -1,0 +1,43 @@
+Generate exactly ONE speaking prompt
+for level %s
+about the topic %s.
+
+Requirements:
+- The question MUST be written in authentic Luxembourgish (Lëtzebuergesch).
+- Use standard Luxembourgish spelling and grammar.
+- Never invent Luxembourgish words.
+- Never imitate Luxembourgish by modifying German, French, Dutch, or other languages.
+- Keep the question appropriate for the requested CEFR level.
+- Make the prompt noticeably different each time.
+- Vary vocabulary, sentence structure, verbs, time expressions, and situations.
+- Avoid always using the most obvious examples for the topic.
+
+Return ONLY strict valid JSON.
+
+Use exactly this structure:
+{
+  "question": "...",
+  "type": "%s",
+  "options": [],
+  "expectedAnswer": "...",
+  "hint": "...",
+  "questionTranslation": "..."
+}
+
+Field rules:
+- "question" must contain the Luxembourgish speaking question.
+- "type" must match the requested type exactly.
+- "options" must be an empty array.
+- "expectedAnswer" must contain a short example answer in Luxembourgish.
+- "hint" must briefly help the learner answer.
+- "questionTranslation" is required and must contain the English translation of "question".
+
+JSON rules:
+- Return only the JSON object.
+- Do not include markdown.
+- Do not use code fences.
+- Do not include comments.
+- Do not include trailing commas.
+- The JSON MUST be syntactically valid and parsable.
+- Every property name must be inside double quotes.
+- Do not include any text before or after the JSON.
