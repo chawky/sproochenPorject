@@ -3,8 +3,11 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedExerciseDto;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
@@ -14,15 +17,28 @@ import tools.jackson.databind.ObjectMapper;
 public class ExerciseService {
     private static final Logger log = LoggerFactory.getLogger(ExerciseService.class);
 
+    @Value("${ai.prompts.exercise-generation}")
+    private Resource exerciseGenerationPromptResource;
+
     private final AiChatClient aiChatClient;
     private final ObjectMapper objectMapper;
+    private final PromptFileService promptFileService;
+    private String exerciseGenerationPrompt;
 
     public ExerciseService(
             AiChatClient aiChatClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PromptFileService promptFileService
     ) {
         this.aiChatClient = aiChatClient;
         this.objectMapper = objectMapper;
+        this.promptFileService = promptFileService;
+    }
+
+    @PostConstruct
+    void loadPromptFiles() {
+        exerciseGenerationPrompt = promptFileService.read(exerciseGenerationPromptResource);
+        log.debug("Exercise generation prompt loaded. characters={}", exerciseGenerationPrompt.length());
     }
 
     public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
@@ -33,39 +49,11 @@ public class ExerciseService {
                 exerciseRequestDto.getType()
         );
 
-        String prompt = """
-                Generate exactly ONE %s exercise
-                for level %s
-                about the topic %s.
-                
-                Make the exercise noticeably different each time.
-                Vary the vocabulary, sentence structure, verbs, time expressions,
-                and situation used in the exercise.
-                Avoid always using the most obvious examples for this topic.
-                
-                Return ONLY valid JSON.
-                
-                Use exactly this structure:
-                {
-                  "question": "...",
-                  "type": "%s",
-                  "options": [],
-                  "expectedAnswer": "...",
-                  "hint": "..."
-                }
-                
-                Rules:
-                - Do not include markdown.
-                - Do not include headings.
-                - Do not generate multiple exercises.
-                - Keep the exercise appropriate for the requested level.
-                """
-                .formatted(
-                        exerciseRequestDto.getType(),
-                        exerciseRequestDto.getLevel(),
-                        exerciseRequestDto.getTopic(),
-                        exerciseRequestDto.getType()
-                );
+        String prompt = exerciseGenerationPrompt.formatted(
+                exerciseRequestDto.getType(),
+                exerciseRequestDto.getLevel(),
+                exerciseRequestDto.getTopic()
+        );
 
         String content = aiChatClient.complete(prompt, "text exercise");
 

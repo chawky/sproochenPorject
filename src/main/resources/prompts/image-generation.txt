@@ -1,0 +1,38 @@
+Write exactly ONE concrete image description prompt for a Luxembourgish speaking practice exercise.
+
+Learner level: %1$s
+Topic: %2$s
+
+Goal:
+- The learner will look at the image and describe it aloud in Luxembourgish.
+- The image must contain enough visible details for a short spoken description.
+- The scene must be realistic, clear, and easy to understand.
+- The image should match the topic and the learner level.
+- The returned text will be sent directly to an image generation API.
+- The same returned text will be used later as the reference description for evaluating the learner.
+
+Scene requirements:
+- Show one everyday situation, not a collage.
+- Include 2 to 5 visible objects or people that the learner can name.
+- Include one simple action or situation the learner can describe.
+- Use a Luxembourg or European everyday context when natural.
+- Keep the image family-friendly and appropriate for language learning.
+- Avoid crowded scenes, tiny details, surreal elements, fantasy, memes, or abstract art.
+- Avoid any readable text, signs, labels, logos, flags, documents, UI screens, or brand names.
+- Avoid showing private personal data, license plates, phone numbers, addresses, or IDs.
+
+Level guidance:
+- For A1: simple scene, common nouns, clear colors, one obvious action.
+- For A2: everyday scene with a few details, simple relationships, time/place clues.
+- For B1: realistic scene with more context, mood, purpose, and several describable details.
+
+Style:
+- Realistic photo style.
+- Natural lighting.
+- Clear composition.
+- Medium-wide shot.
+- 16:9 landscape image.
+
+Return only the final image description prompt as plain text.
+Do not include markdown, headings, bullet points, or explanations.
+Do not ask a question.

@@ -117,7 +117,7 @@ public class SpeakingService {
         }
     }
 
-    private String transcribeAudio(MultipartFile audio) {
+    public String transcribeAudio(MultipartFile audio) {
         log.debug("Sending audio to Groq transcription. audioName={}, audioSize={}", audio.getOriginalFilename(), audio.getSize());
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
