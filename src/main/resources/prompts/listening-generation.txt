@@ -1,37 +1,73 @@
 Generate exactly ONE listening comprehension exercise
-for level %s
-about the topic %s.
+for level %1$s
+about the topic %2$s.
 
-Requirements:
-- The listening text MUST be written in authentic Luxembourgish (Lëtzebuergesch).
-- Keep the listening text around 30 to 60 seconds when spoken aloud.
+The requested answer type is %3$s.
+
+Core goal:
+- Write a short, natural Luxembourgish listening text first.
+- The audio will be generated directly from "question", so "question" must be good spoken Luxembourgish.
+- Prefer simple, common Luxembourgish that a real person in Luxembourg might say.
+- Use short sentences and normal word order.
+- Do not translate English or German sentence structures word-for-word.
+- Do not use awkward calques such as "d'App erlaabt et de Benotzer".
+- Use "Leit", "App", "Handy", "Tablet", "Zeitung", "Artikel", "Videoen" naturally when relevant.
+
+Language requirements:
+- The listening text MUST be authentic Luxembourgish (Lëtzebuergesch).
 - Use standard Luxembourgish spelling and grammar.
 - Never invent Luxembourgish words.
-- Never imitate Luxembourgish by modifying German, French, Dutch, or other languages.
+- Never mix the listening text with German, French, Dutch, or English sentences.
+- Loanwords that are normal in Luxembourgish technology contexts are allowed, for example "App", "Handy", "Tablet", "Internet", "Video".
 - Keep the exercise appropriate for the requested CEFR level.
-- Make the exercise noticeably different each time.
-- Vary vocabulary, sentence structure, verbs, time expressions, and situations.
-- Avoid always using the most obvious examples for the topic.
-- Keep the listening text short enough for an MVP audio clip.
+- Keep the listening text around 4 to 7 short sentences.
+- Keep it short enough for a 20 to 40 second MVP audio clip.
+
+Answer rules:
+- Decide on ONE clear comprehension question about the listening text.
+- Put that comprehension question in "hint".
+- "hint" must NOT be a generic instruction.
+- Bad "hint": "Lauschter gutt a schreif déi richteg Äntwert op."
+- Bad "hint": "Lauschter gutt a wielt déi richteg Äntwert."
+- Good "hint": "Wéi eng Sprooch léiert säi Brudder mat enger App?"
+- Good "hint": "Firwat benotzt hien d'App all Dag?"
+- Good "hint": "Wou liest si d'Noriichten?"
+- "hint" must ask about one concrete detail that is clearly stated in "question".
+- If the requested answer type is MULTIPLE_CHOICE, "options" must contain exactly 4 Luxembourgish answer choices.
+- If the requested answer type is MULTIPLE_CHOICE, all 4 options must answer the question in "hint".
+- If the requested answer type is MULTIPLE_CHOICE, "expectedAnswer" must exactly equal the full correct option string.
+- If the requested answer type is SHORT_ANSWER, "hint" must be a specific Luxembourgish question ending with a question mark.
+- If the requested answer type is SHORT_ANSWER, "expectedAnswer" must be a concise Luxembourgish answer to "hint", usually 1 to 6 words.
+- If the requested answer type is not MULTIPLE_CHOICE, "options" must be an empty array.
+- Do not make "expectedAnswer" a random word from the transcript; it must answer "hint".
+- "hintTranslation" must contain the English translation of "hint".
+
+Quality check before returning:
+- Read the Luxembourgish text once internally.
+- If any sentence sounds like translated German or English, rewrite it in simpler Luxembourgish.
+- If the final answer is not valid JSON, fix it before returning.
 
 Return ONLY strict valid JSON.
 
 Use exactly this structure:
 {
   "question": "...",
-  "type": "%s",
+  "type": "%3$s",
   "options": [],
   "expectedAnswer": "...",
   "hint": "...",
+  "hintTranslation": "...",
   "questionTranslation": "..."
 }
 
 Field rules:
-- "question" must contain the Luxembourgish listening text.
-- "expectedAnswer" must contain the correct answer or a model answer.
-- "hint" must briefly help the learner understand the listening task.
-- "options" must be an empty array unless the requested type needs answer choices.
-- "questionTranslation" is required and must contain the English translation of "question".
+- "question" must contain only the Luxembourgish listening transcript.
+- "type" must match the requested answer type exactly.
+- "hint" must contain the learner-facing comprehension question.
+- "hintTranslation" must contain the English translation of the learner-facing comprehension question.
+- "questionTranslation" must contain the English translation of "question".
+- Do not put the English translation in "question".
+- Do not put the learner-facing comprehension question in "question".
 
 JSON rules:
 - Return only the JSON object.

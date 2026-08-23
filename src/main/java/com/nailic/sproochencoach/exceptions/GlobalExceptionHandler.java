@@ -25,6 +25,28 @@ public class GlobalExceptionHandler {
                         )
                 );
     }
+
+    @ExceptionHandler(AiProviderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiProviderException(
+            AiProviderException exception
+    ) {
+        log.error(
+                "Handling AiProviderException. statusCode={}, message={}",
+                exception.getStatusCode(),
+                exception.getMessage()
+        );
+
+        return ResponseEntity
+                .status(exception.getStatusCode())
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(OpenRouterError.class)
     public ResponseEntity<ApiResponse<Void>> handleOpenRouterError(
             OpenRouterError exception

@@ -6,19 +6,23 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-public class OpenRouterRestClientConfig {
+public class AnthropicRestClientConfig {
 
-    @Value("${ai.openrouter.api-key}")
+    @Value("${ai.kimi.api-key}")
     private String apiKey;
 
-    @Value("${ai.openrouter.base-url}")
+    @Value("${ai.kimi.base-url}")
     private String baseUrl;
 
-    @Bean("openRouterRestClient")
-    public RestClient openRouterRestClient() {
+    @Value("${ai.kimi.anthropic-version}")
+    private String anthropicVersion;
+
+    @Bean("anthropicRestClient")
+    public RestClient anthropicRestClient() {
         return RestClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("x-api-key", apiKey)
+                .defaultHeader("anthropic-version", anthropicVersion)
                 .build();
     }
 }
