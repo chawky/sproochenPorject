@@ -18,14 +18,17 @@ public class ListeningService {
 
     private final AudioExerciseGenerationService audioExerciseGenerationService;
     private final PromptFileService promptFileService;
+    private final UserProgressService userProgressService;
     private String listeningGenerationPrompt;
 
     public ListeningService(
             AudioExerciseGenerationService audioExerciseGenerationService,
-            PromptFileService promptFileService
+            PromptFileService promptFileService,
+            UserProgressService userProgressService
     ) {
         this.audioExerciseGenerationService = audioExerciseGenerationService;
         this.promptFileService = promptFileService;
+        this.userProgressService = userProgressService;
     }
 
     @PostConstruct
@@ -49,6 +52,7 @@ public class ListeningService {
                 "listening exercise"
         );
 
+        userProgressService.recordGeneratedExercise("LISTENING", exerciseRequestDto);
         log.debug("Listening exercise generated successfully. audioBytes={}", exercise.getAudio() == null ? 0 : exercise.getAudio().length);
 
         return exercise;

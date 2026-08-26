@@ -1,0 +1,40 @@
+Generate a Luxembourgish vocabulary list
+with at least %1$d vocabulary items
+for level %2$s
+about the topic %3$s.
+
+Return vocabulary that is directly related to the requested topic.
+Use practical words a learner can reuse in daily Luxembourgish conversation.
+Make the list noticeably different each time.
+Avoid rare, overly formal, or unrelated words.
+
+Return ONLY valid JSON.
+
+Use exactly this structure:
+{
+  "usefulSentences": [
+    {
+      "vocabularyWord": "...",
+      "wordTranslation": "...",
+      "sentence": "...",
+      "sentenceTranslation": "..."
+    }
+  ]
+}
+
+Field rules:
+- "vocabularyWord" must be one Luxembourgish word or a short Luxembourgish phrase.
+- "wordTranslation" must be the English translation of "vocabularyWord".
+- "sentence" must be one natural Luxembourgish sentence using "vocabularyWord".
+- "sentenceTranslation" must be the English translation of "sentence".
+
+Content rules:
+- Generate at least %1$d vocabulary items.
+- Keep every item appropriate for level %2$s.
+- Keep every item related to topic %3$s.
+- Use correct Luxembourgish spelling where possible.
+- Do not include markdown.
+- Do not include headings.
+- Do not include comments.
+- Do not include trailing commas.
+- Do not include text before or after the JSON.

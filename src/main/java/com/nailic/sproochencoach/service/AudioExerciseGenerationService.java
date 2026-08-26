@@ -21,7 +21,6 @@ public class AudioExerciseGenerationService {
 
     @Value("${ai.elevenlabs.voice-id}")
     private String voiceId;
-
     private final AiChatClient aiChatClient;
     private final RestClient ttsRestClient;
     private final ObjectMapper objectMapper;

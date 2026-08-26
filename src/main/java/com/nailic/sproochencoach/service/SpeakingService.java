@@ -32,12 +32,12 @@ public class SpeakingService {
 
     @Value("${ai.prompts.transcription}")
     private Resource transcriptionPromptResource;
-
     private final AiChatClient aiChatClient;
     private final RestClient groqRestClient;
     private final ObjectMapper objectMapper;
     private final PromptFileService promptFileService;
     private final AudioExerciseGenerationService audioExerciseGenerationService;
+    private final UserProgressService userProgressService;
     private String speakingGenerationPrompt;
     private String speakingEvaluationPrompt;
     private String transcriptionPrompt;
@@ -47,13 +47,15 @@ public class SpeakingService {
             @Qualifier("groqRestClient") RestClient groqRestClient,
             ObjectMapper objectMapper,
             PromptFileService promptFileService,
-            AudioExerciseGenerationService audioExerciseGenerationService
+            AudioExerciseGenerationService audioExerciseGenerationService,
+            UserProgressService userProgressService
     ) {
         this.aiChatClient = aiChatClient;
         this.groqRestClient = groqRestClient;
         this.objectMapper = objectMapper;
         this.promptFileService = promptFileService;
         this.audioExerciseGenerationService = audioExerciseGenerationService;
+        this.userProgressService = userProgressService;
     }
 
     @PostConstruct
@@ -76,13 +78,14 @@ public class SpeakingService {
                 exerciseRequestDto.getTopic(),
                 exerciseRequestDto.getType()
         );
-
-        return audioExerciseGenerationService.generateAudioExercise(
+        SpeakingDto exercise = audioExerciseGenerationService.generateAudioExercise(
                 exerciseRequestDto,
                 speakingGenerationPrompt,
                 SpeakingDto.class,
                 "speaking prompt"
         );
+        userProgressService.recordGeneratedExercise("SPEAKING", exerciseRequestDto);
+        return exercise;
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio) {
@@ -100,6 +103,7 @@ public class SpeakingService {
                     content,
                     SpeakingEvaluation.class
             );
+            userProgressService.recordEvaluation("SPEAKING", "speaking evaluation", evaluation.getScore());
             log.debug("Speaking evaluation parsed successfully. score={}, corrections={}", evaluation.getScore(), evaluation.getCorrections() == null ? 0 : evaluation.getCorrections().size());
             return evaluation;
         } catch (JacksonException exception) {

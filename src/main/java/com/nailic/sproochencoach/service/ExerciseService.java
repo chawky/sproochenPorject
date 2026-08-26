@@ -19,20 +19,22 @@ public class ExerciseService {
 
     @Value("${ai.prompts.exercise-generation}")
     private Resource exerciseGenerationPromptResource;
-
     private final AiChatClient aiChatClient;
     private final ObjectMapper objectMapper;
     private final PromptFileService promptFileService;
+    private final UserProgressService userProgressService;
     private String exerciseGenerationPrompt;
 
     public ExerciseService(
             AiChatClient aiChatClient,
             ObjectMapper objectMapper,
-            PromptFileService promptFileService
+            PromptFileService promptFileService,
+            UserProgressService userProgressService
     ) {
         this.aiChatClient = aiChatClient;
         this.objectMapper = objectMapper;
         this.promptFileService = promptFileService;
+        this.userProgressService = userProgressService;
     }
 
     @PostConstruct
@@ -62,6 +64,7 @@ public class ExerciseService {
                     content,
                     GeneratedExerciseDto.class
             );
+            userProgressService.recordGeneratedExercise("TEXT_EXERCISE", exerciseRequestDto);
             log.debug("Text exercise generated successfully. type={}", exercise.getType());
             return exercise;
         } catch (JacksonException exception) {

@@ -36,6 +36,7 @@ public class AppUserService {
     private final JwtService jwtService;
     private final EmailAndOtpService emailAndOtpService;
     private final AuthenticationManager authenticationManager;
+    private final UserLoginDayService userLoginDayService;
 
     public List<ResponseUserDto> findAll() {
         List<ResponseUserDto> users = appUserRepo.findAll().stream()
@@ -104,6 +105,8 @@ public class AppUserService {
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
         AppUser user = (AppUser) authentication.getPrincipal();
+        userLoginDayService.recordLogin(user);
+
         ResponseUserDto userDto = mapper.map(user,
                 ResponseUserDto.class);
         userDto.setJwt(jwtService.generateToken(user));

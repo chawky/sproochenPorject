@@ -25,12 +25,12 @@ public class ImageDescriptionService {
 
     @Value("${ai.prompts.image-description-evaluation}")
     private Resource imageDescriptionEvaluationPromptResource;
-
     private final PromptFileService promptFileService;
     private final AiChatClient aiChatClient;
     private final AiImageClient aiImageClient;
     private final SpeakingService speakingService;
     private final ObjectMapper objectMapper;
+    private final UserProgressService userProgressService;
     private String imageDescriptionPrompt;
     private String imageDescriptionEvaluationPrompt;
 
@@ -39,13 +39,15 @@ public class ImageDescriptionService {
             AiImageClient aiImageClient,
             PromptFileService promptFileService,
             SpeakingService speakingService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            UserProgressService userProgressService
     ) {
         this.promptFileService = promptFileService;
         this.aiChatClient = aiChatClient;
         this.aiImageClient = aiImageClient;
         this.speakingService = speakingService;
         this.objectMapper = objectMapper;
+        this.userProgressService = userProgressService;
     }
 
     @PostConstruct
@@ -80,6 +82,7 @@ public class ImageDescriptionService {
         GeneratedImageDto generatedImageDto = new GeneratedImageDto();
         generatedImageDto.setImage(aiImageClient.generateImage(imageDescription));
         generatedImageDto.setImageDescription(imageDescription);
+        userProgressService.recordGeneratedExercise("IMAGE_DESCRIPTION", request);
         return generatedImageDto;
     }
 
@@ -103,6 +106,7 @@ public class ImageDescriptionService {
                     content,
                     SpeakingEvaluation.class
             );
+            userProgressService.recordEvaluation("IMAGE_DESCRIPTION", "image description evaluation", evaluation.getScore());
             log.debug(
                     "Image description evaluation parsed successfully. score={}, corrections={}",
                     evaluation.getScore(),
