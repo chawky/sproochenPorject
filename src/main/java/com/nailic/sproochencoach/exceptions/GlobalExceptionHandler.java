@@ -26,6 +26,38 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException exception) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
+    @ExceptionHandler(LocationProviderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLocationProviderException(LocationProviderException exception) {
+        log.error(
+                "Handling LocationProviderException. statusCode={}, message={}",
+                exception.getStatusCode(),
+                exception.getMessage()
+        );
+
+        return ResponseEntity
+                .status(exception.getStatusCode())
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(AiProviderException.class)
     public ResponseEntity<ApiResponse<Void>> handleAiProviderException(
             AiProviderException exception

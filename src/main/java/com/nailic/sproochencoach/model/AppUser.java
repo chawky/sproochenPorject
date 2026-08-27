@@ -28,6 +28,13 @@ public class AppUser extends BaseModel implements UserDetails {
   @Column private String username;
   @Column private String password;
   @Column private String email;
+  @Column private String firstName;
+  @Column private String lastName;
+  @Column private String street;
+  @Column private String streetNumber;
+  @Column private String postalCode;
+  @Column private String city;
+  @Column private String addressInfo;
   @Column(nullable = false)
   private boolean enabled = false;
   @ManyToMany(fetch = FetchType.EAGER)

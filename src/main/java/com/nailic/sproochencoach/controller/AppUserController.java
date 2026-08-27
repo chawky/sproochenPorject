@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.*;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -21,6 +22,7 @@ public class AppUserController {
 
     private final AppUserService appUserService;
     private final EmailAndOtpService emailAndOtpService;
+    private final LuxembourgLocationService luxembourgLocationService;
     private final ModelMapper mapper;
 
     @GetMapping
@@ -51,9 +53,25 @@ public class AppUserController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/locations")
+    public ResponseEntity<ApiResponse<List<LocationSuggestionDto>>> searchLocations(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        List<LocationSuggestionDto> locations = luxembourgLocationService.searchLocations(query, limit);
+
+        ApiResponse<List<LocationSuggestionDto>> response = new ApiResponse<>(
+                true,
+                "Locations retrieved successfully",
+                locations
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/addUser")
     public ResponseEntity<ApiResponse<ResponseUserDto>> createUser(
-            @RequestBody RequestUserDto request
+            @Valid @RequestBody RequestUserDto request
     ) {
         ResponseUserDto createdUser = appUserService.addUser(request);
 
@@ -67,6 +85,23 @@ public class AppUserController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> updateUser(
+            @PathVariable Integer id,
+            @Valid @RequestBody RequestUserDto request
+    ) {
+        ResponseUserDto updatedUser = appUserService.updateUser(id, request);
+
+        ApiResponse<ResponseUserDto> response =
+                new ApiResponse<>(
+                        true,
+                        "User updated successfully",
+                        updatedUser
+                );
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")

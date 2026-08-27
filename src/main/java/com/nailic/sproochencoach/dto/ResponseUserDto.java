@@ -15,6 +15,13 @@ public class ResponseUserDto {
   private Integer id;
   private String username;
   private String email;
+  private String firstName;
+  private String lastName;
+  private String street;
+  private String streetNumber;
+  private String postalCode;
+  private String city;
+  private String addressInfo;
   private Set<String> roles = new HashSet<>();
   private String jwt;
 }
