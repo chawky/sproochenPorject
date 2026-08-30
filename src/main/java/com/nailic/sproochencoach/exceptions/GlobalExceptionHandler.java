@@ -99,4 +99,25 @@ public class GlobalExceptionHandler {
                         )
                 );
     }
+
+    @ExceptionHandler(StripeException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStripeExceptionError(
+            StripeException exception
+    ) {
+        log.error(
+                "Handling StripeException. statusCode={}, message={}",
+                exception.getStatusCode(),
+                exception.getMessage()
+        );
+
+        return ResponseEntity
+                .status(exception.getStatusCode())
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
 }
