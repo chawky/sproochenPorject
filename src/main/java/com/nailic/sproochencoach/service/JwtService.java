@@ -26,7 +26,6 @@ public class JwtService {
   private long jwtExpiration;
 
   public String generateToken(AppUser user) {
-    log.debug("Generating JWT for user id {}", user.getId());
     return Jwts.builder()
         .signWith(getSigningKey())
         .subject(user.getEmail())
@@ -41,7 +40,6 @@ public class JwtService {
   }
 
   public String extractUsername(String jwt) {
-    log.debug("Extracting JWT subject");
     return Jwts.parser()
         .verifyWith(getSigningKey())
         .build()
@@ -64,7 +62,6 @@ public class JwtService {
       log.warn("JWT validation failed because token is expired. userId={}", user.getId());
       return false;
     }
-    log.debug("JWT validation succeeded. userId={}", user.getId());
     return true;
   }
 }

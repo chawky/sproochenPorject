@@ -15,7 +15,6 @@ public class PromptFileService {
     public String read(Resource resource) {
         try {
             String content = resource.getContentAsString(StandardCharsets.UTF_8).strip();
-            log.debug("Prompt resource loaded. resource={}, characters={}", resource, content.length());
             return content;
         } catch (IOException exception) {
             log.error("Failed to load prompt resource {}", resource, exception);

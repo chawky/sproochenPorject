@@ -41,14 +41,6 @@ public class AudioExerciseGenerationService {
             Class<T> responseType,
             String exerciseName
     ) {
-        log.debug(
-                "Generating {}. level={}, topic={}, type={}",
-                exerciseName,
-                exerciseRequestDto.getLevel(),
-                exerciseRequestDto.getTopic(),
-                exerciseRequestDto.getType()
-        );
-
         String prompt = promptTemplate.formatted(
                 exerciseRequestDto.getLevel(),
                 exerciseRequestDto.getTopic(),
@@ -62,8 +54,6 @@ public class AudioExerciseGenerationService {
                     content,
                     responseType
             );
-
-            log.debug("{} JSON parsed successfully. questionLength={}", exerciseName, result.getQuestion() == null ? 0 : result.getQuestion().length());
 
             TtsRequest ttsRequest = new TtsRequest(
                     result.getQuestion(),
@@ -80,21 +70,14 @@ public class AudioExerciseGenerationService {
                         .retrieve()
                         .body(byte[].class);
             } catch (RuntimeException exception) {
-                log.error("ElevenLabs TTS request failed while generating {}", exerciseName, exception);
+                log.error("ElevenLabs TTS request failed while generating {}. reason={}", exerciseName, exception.getMessage());
                 throw exception;
             }
 
             result.setAudio(audio);
-            log.debug("{} audio generated successfully. audioBytes={}", exerciseName, audio == null ? 0 : audio.length);
             return result;
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse AI provider {} JSON. jacksonMessage={}, aiReturned={}",
-                    exerciseName,
-                    exception.getMessage(),
-                    content,
-                    exception
-            );
+            log.error("Failed to parse AI provider {} JSON. contentLength={}, jacksonMessage={}", exerciseName, content == null ? 0 : content.length(), exception.getMessage());
 
             throw new AiProviderException(
                     HttpStatus.BAD_GATEWAY.value(),

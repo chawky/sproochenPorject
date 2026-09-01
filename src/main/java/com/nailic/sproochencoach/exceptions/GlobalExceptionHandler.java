@@ -41,11 +41,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(LocationProviderException.class)
     public ResponseEntity<ApiResponse<Void>> handleLocationProviderException(LocationProviderException exception) {
-        log.error(
-                "Handling LocationProviderException. statusCode={}, message={}",
-                exception.getStatusCode(),
-                exception.getMessage()
-        );
+        log.error("Handling LocationProviderException. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());
 
         return ResponseEntity
                 .status(exception.getStatusCode())
@@ -62,11 +58,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAiProviderException(
             AiProviderException exception
     ) {
-        log.error(
-                "Handling AiProviderException. statusCode={}, message={}",
-                exception.getStatusCode(),
-                exception.getMessage()
-        );
+        log.error("Handling AiProviderException. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());
 
         return ResponseEntity
                 .status(exception.getStatusCode())
@@ -83,11 +75,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleOpenRouterError(
             OpenRouterError exception
     ) {
-        log.error(
-                "Handling OpenRouterError. statusCode={}, message={}",
-                exception.getStatusCode(),
-                exception.getMessage()
-        );
+        log.error("Handling OpenRouterError. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());
 
         return ResponseEntity
                 .status(exception.getStatusCode())
@@ -104,11 +92,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleStripePaymentException(
             StripePaymentException exception
     ) {
-        log.error(
-                "Handling StripePaymentException. statusCode={}, message={}",
-                exception.getStatusCode(),
-                exception.getMessage()
-        );
+        log.error("Handling StripePaymentException. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());
 
         return ResponseEntity
                 .status(exception.getStatusCode())

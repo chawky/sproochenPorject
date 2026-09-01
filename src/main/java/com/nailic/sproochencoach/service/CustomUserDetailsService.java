@@ -21,8 +21,6 @@ public class CustomUserDetailsService implements UserDetailsService {
 
   @Override
   public AppUser loadUserByUsername(String email) {
-    log.debug("Loading user for authentication");
-
     return appUserRepo.findByEmail(email)
         .orElseThrow(() -> {
           log.warn("Authentication user lookup failed");

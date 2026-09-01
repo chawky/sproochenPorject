@@ -43,16 +43,9 @@ public class VocabularyService {
     @PostConstruct
     void loadPromptFiles() {
         vocabPrompt = promptFileService.read(resource);
-        log.debug("Vocabulary generation prompt loaded. characters={}", vocabPrompt.length());
     }
 
     public VocabularyDto generateVocabExercise(ExerciseRequestDto exerciseRequestDto) {
-        log.debug(
-                "Generating vocabulary exercise. level={}, topic={}",
-                exerciseRequestDto.getLevel(),
-                exerciseRequestDto.getTopic()
-        );
-
         String topicLabel = exerciseRequestDto.getTopic() == null
                 ? null
                 : exerciseRequestDto.getTopic().getLabel();
@@ -72,15 +65,9 @@ public class VocabularyService {
             );
             validateVocabularyExercise(exercise);
             userProgressService.recordGeneratedExercise("VOCABULARY", exerciseRequestDto);
-            log.debug("Vocabulary exercise generated successfully. items={}", exercise.getUsefulSentences().size());
             return exercise;
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse AI provider vocabulary exercise JSON. jacksonMessage={}, aiReturned={}",
-                    exception.getMessage(),
-                    content,
-                    exception
-            );
+            log.error("Failed to parse AI provider vocabulary exercise JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());
 
             throw new AiProviderException(
                     HttpStatus.BAD_GATEWAY.value(),

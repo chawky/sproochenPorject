@@ -111,7 +111,6 @@ public class AiChatClient {
                 .body(String.class);
 
         String content = extractOpenRouterText(responseBody, requestName);
-        log.debug("OpenRouter {} response: {}", requestName, content);
         return content;
     }
 
@@ -155,7 +154,6 @@ public class AiChatClient {
                 .body(String.class);
 
         String content = extractAnthropicText(responseBody, requestName);
-        log.debug("Kimi {} response: {}", requestName, content);
         return content;
     }
 
@@ -186,23 +184,10 @@ public class AiChatClient {
                 }
             }
         } catch (JacksonException exception) {
-            log.error(
-                    "{} returned unreadable error while processing {}. status={}",
-                    providerName,
-                    requestName,
-                    statusCode.value(),
-                    exception
-            );
+            providerErrorType = "unreadable";
         }
 
-        log.error(
-                "{} returned error while processing {}. status={}, type={}, message={}",
-                providerName,
-                requestName,
-                statusCode.value(),
-                providerErrorType,
-                providerMessage
-        );
+        log.error("{} returned error while processing {}. status={}, type={}, message={}", providerName, requestName, statusCode.value(), providerErrorType, providerMessage);
 
         throw new AiProviderException(statusCode.value(), providerMessage);
     }
@@ -252,12 +237,7 @@ public class AiChatClient {
         }
 
         if (!StringUtils.hasText(textBuilder.toString())) {
-            log.error(
-                    "Kimi returned no text for {}. stopReason={}, contentBlockTypes={}",
-                    requestName,
-                    responseMap.get("stop_reason"),
-                    contentBlockTypes(contentBlocks)
-            );
+            log.error("Kimi returned no text for {}. stopReason={}, contentBlockTypes={}", requestName, responseMap.get("stop_reason"), contentBlockTypes(contentBlocks));
             throw invalidResponse("Kimi", requestName, "text content is missing");
         }
 
@@ -284,13 +264,6 @@ public class AiChatClient {
         try {
             return objectMapper.readValue(responseBody, Map.class);
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse {} {} response JSON. jacksonMessage={}",
-                    providerName,
-                    requestName,
-                    exception.getMessage(),
-                    exception
-            );
             throw invalidResponse(providerName, requestName, "response JSON could not be parsed");
         }
     }

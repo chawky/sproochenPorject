@@ -42,14 +42,10 @@ public class AppUserService {
                 .map(s -> mapper.map(s, ResponseUserDto.class))
                 .collect(Collectors.toList());
 
-        log.debug("Retrieved {} users", users.size());
-
         return users;
     }
 
     public ResponseUserDto addUser(RequestUserDto request) {
-        log.debug("Registering user with email {}", maskEmail(request.getEmail()));
-
         if (appUserRepo.existsByUsername(request.getUsername())) {
             log.warn("Registration rejected because username already exists");
             throw new UserAlreadyExistsException("Username already exists");
@@ -67,14 +63,10 @@ public class AppUserService {
 
         AppUser savedUser = appUserRepo.save(user);
 
-        log.debug("User registered successfully with id {}", savedUser.getId());
-
         return mapper.map(savedUser, ResponseUserDto.class);
     }
 
     public ResponseUserDto updateUser(Integer id, RequestUserDto request) {
-        log.debug("Updating user with id {}", id);
-
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -96,23 +88,17 @@ public class AppUserService {
 
         AppUser savedUser = appUserRepo.save(user);
 
-        log.debug("User updated successfully with id {}", savedUser.getId());
-
         return mapper.map(savedUser, ResponseUserDto.class);
     }
 
     public ResponseUserDto findById(int id) {
-        log.debug("Finding user by id {}", id);
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         ResponseUserDto responseUserDto = mapper.map(user, ResponseUserDto.class);
-        log.debug("User lookup by id {} completed", id);
         return responseUserDto;
     }
 
     public ResponseUserDto login(RequestUserDto appUserDto) {
-        log.debug("Login attempt for email {}", maskEmail(appUserDto.getEmail()));
-
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
         AppUser user = (AppUser) authentication.getPrincipal();
@@ -121,8 +107,6 @@ public class AppUserService {
         ResponseUserDto userDto = mapper.map(user,
                 ResponseUserDto.class);
         userDto.setJwt(jwtService.generateToken(user));
-
-        log.debug("Login successful for user id {}", user.getId());
 
         return userDto;
     }

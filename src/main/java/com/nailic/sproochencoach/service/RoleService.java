@@ -17,12 +17,9 @@ public class RoleService {
   public final RoleRepo roleRepo;
 
   public AppRole getRoleByName(String roleName) {
-    log.debug("Looking up role by name {}", roleName);
     AppRole role = roleRepo.findByName(roleName);
     if (role == null) {
       log.warn("Role lookup failed. roleName={}", roleName);
-    } else {
-      log.debug("Role lookup succeeded. roleName={}, roleId={}", roleName, role.getId());
     }
     return role;
   }

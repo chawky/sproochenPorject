@@ -87,7 +87,6 @@ public class AiImageClient {
                 .body(String.class);
 
         byte[] image = extractImageBytes(responseBody, "Kimi image", requestName);
-        log.debug("Kimi image generated successfully. imageBytes={}", image.length);
         return image;
     }
 
@@ -113,7 +112,6 @@ public class AiImageClient {
                 .body(String.class);
 
         byte[] image = extractImageBytes(responseBody, "OpenRouter image", requestName);
-        log.debug("OpenRouter image generated successfully. imageBytes={}", image.length);
         return image;
     }
 
@@ -138,7 +136,6 @@ public class AiImageClient {
         try {
             return Base64.getDecoder().decode(b64Json);
         } catch (IllegalArgumentException exception) {
-            log.error("{} returned invalid base64 image for {}", providerName, requestName, exception);
             throw invalidResponse(providerName, requestName, "base64 image is invalid");
         }
     }
@@ -170,23 +167,10 @@ public class AiImageClient {
                 }
             }
         } catch (JacksonException exception) {
-            log.error(
-                    "{} returned unreadable error while processing {}. status={}",
-                    providerName,
-                    requestName,
-                    statusCode.value(),
-                    exception
-            );
+            providerErrorType = "unreadable";
         }
 
-        log.error(
-                "{} returned error while processing {}. status={}, type={}, message={}",
-                providerName,
-                requestName,
-                statusCode.value(),
-                providerErrorType,
-                providerMessage
-        );
+        log.error("{} returned error while processing {}. status={}, type={}, message={}", providerName, requestName, statusCode.value(), providerErrorType, providerMessage);
 
         throw new AiProviderException(statusCode.value(), providerMessage);
     }
@@ -199,13 +183,6 @@ public class AiImageClient {
         try {
             return objectMapper.readValue(responseBody, Map.class);
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse {} {} response JSON. jacksonMessage={}",
-                    providerName,
-                    requestName,
-                    exception.getMessage(),
-                    exception
-            );
             throw invalidResponse(providerName, requestName, "response JSON could not be parsed");
         }
     }

@@ -52,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     try {
       email = jwtService.extractUsername(jwt);
     } catch (RuntimeException exception) {
-      log.warn("Failed to extract JWT subject", exception);
+      log.warn("Failed to extract JWT subject");
       throw exception;
     }
 
@@ -63,7 +63,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         authenticationToken.setDetails(new WebAuthenticationDetails(request));
         SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-        log.debug("JWT authentication set for user id {}", user.getId());
       }
     }
 

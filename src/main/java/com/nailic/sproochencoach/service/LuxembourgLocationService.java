@@ -61,12 +61,7 @@ public class LuxembourgLocationService {
 
             return mapResponse(response);
         } catch (RestClientException exception) {
-            log.error(
-                    "Geoportail location lookup failed. queryLength={}, limit={}, reason={}",
-                    trimmedQuery.length(),
-                    normalizedLimit,
-                    exception.getMessage()
-            );
+            log.error("Geoportail location lookup failed. queryLength={}, limit={}, reason={}", trimmedQuery.length(), normalizedLimit, exception.getMessage());
 
             throw new LocationProviderException(
                     HttpStatus.BAD_GATEWAY.value(),

@@ -6,8 +6,6 @@ import com.nailic.sproochencoach.dto.SkillProgressDto;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.UserProgress;
 import com.nailic.sproochencoach.repository.UserProgressRepo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -19,8 +17,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserProgressService {
-    private static final Logger log = LoggerFactory.getLogger(UserProgressService.class);
-
     private final LoggedInUser loggedInUser;
     private final UserProgressRepo userProgressRepo;
     private final UserLoginDayService userLoginDayService;
@@ -61,16 +57,6 @@ public class UserProgressService {
         dashboard.setAverageRatingOverall(averageRating(progressRecords));
         dashboard.setSkillProgress(skillProgress(progressRecords));
 
-        log.debug(
-                "Current user progress retrieved. userId={}, loggedInDays={}, currentStreakDays={}, totalActivities={}, evaluatedActivities={}, skillCount={}",
-                user.getId(),
-                dashboard.getLoggedInDays(),
-                dashboard.getCurrentStreakDays(),
-                dashboard.getTotalActivities(),
-                dashboard.getEvaluatedActivities(),
-                dashboard.getSkillProgress().size()
-        );
-
         return dashboard;
     }
 
@@ -84,14 +70,6 @@ public class UserProgressService {
         progress.setAverageRatingOverall(ratingOverall);
 
         userProgressRepo.save(progress);
-
-        log.debug(
-                "User progress recorded. userId={}, exerciseType={}, exerciseName={}, ratingPresent={}",
-                user.getId(),
-                exerciseType,
-                exerciseName,
-                ratingOverall != null
-        );
     }
 
     private String buildExerciseName(ExerciseRequestDto request) {

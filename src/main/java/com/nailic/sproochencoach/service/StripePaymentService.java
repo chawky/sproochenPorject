@@ -43,6 +43,7 @@ public class StripePaymentService {
             SessionCreateParams params =
                     SessionCreateParams.builder()
                             .setSuccessUrl(stripeSuccessUrl)
+                            .setClientReferenceId(String.valueOf(user.getId()))
                             .setCancelUrl(stripeCancelUrl)
                             .setCustomerEmail(user.getEmail())
                             .addLineItem(
@@ -58,34 +59,20 @@ public class StripePaymentService {
             String sessionUrl = session.getUrl();
 
             if (!StringUtils.hasText(sessionUrl)) {
-                log.error(
-                        "Stripe checkout session created without redirect URL. userId={}, sessionId={}",
-                        user.getId(),
-                        session.getId()
-                );
+                log.error("Stripe checkout session created without redirect URL. userId={}, sessionId={}", user.getId(), session.getId());
                 throw new StripePaymentException(
                         HttpStatus.BAD_GATEWAY.value(),
                         "Stripe checkout session did not include a redirect URL"
                 );
             }
 
-            log.debug(
-                    "Stripe checkout session created. userId={}, sessionId={}",
-                    user.getId(),
-                    session.getId()
-            );
+            log.debug("Stripe checkout session created. userId={}, sessionId={}", user.getId(), session.getId());
 
             return StripeSessionURLDto.builder()
                     .stripeSessionUrl(sessionUrl)
                     .build();
         } catch (StripeException exception) {
-            log.error(
-                    "Stripe checkout session creation failed. userId={}, stripeStatusCode={}, stripeRequestId={}",
-                    user.getId(),
-                    exception.getStatusCode(),
-                    exception.getRequestId(),
-                    exception
-            );
+            log.error("Stripe checkout session creation failed. userId={}, stripeStatusCode={}, stripeRequestId={}", user.getId(), exception.getStatusCode(), exception.getRequestId(), exception);
             throw new StripePaymentException(
                     HttpStatus.BAD_GATEWAY.value(),
                     "Unable to create Stripe checkout session"
@@ -94,13 +81,10 @@ public class StripePaymentService {
     }
 
     public void handleWebhook(String payload, String signature) {
-        log.info("Stripe webhook request received. payloadLength={}", payload.length());
-
         Event event = constructEvent(payload, signature);
         String eventType = event.getType();
 
         if (!"checkout.session.completed".equals(eventType)) {
-            log.debug("Ignoring unsupported Stripe event. eventType={}", eventType);
             return;
         }
 
@@ -110,25 +94,14 @@ public class StripePaymentService {
                 .orElse(null);
 
         if (!(dataObject instanceof Session session)) {
-            log.error(
-                    "Stripe checkout session event could not be deserialized. eventType={}, eventApiVersion={}",
-                    eventType,
-                    event.getApiVersion()
-            );
+            log.error("Stripe checkout session event could not be deserialized. eventType={}, eventApiVersion={}", eventType, event.getApiVersion());
             throw new StripePaymentException(
                     HttpStatus.BAD_REQUEST.value(),
                     "Stripe webhook payload could not be processed"
             );
         }
-
-        log.info(
-                "Stripe checkout completed. sessionId={}, paymentStatus={}, customerId={}, customerEmail={}, subscriptionId={}",
-                session.getId(),
-                session.getPaymentStatus(),
-                session.getCustomer(),
-                customerEmail(session),
-                session.getSubscription()
-        );
+        AppUser user = loggedInUser.get();
+        log.info("Stripe checkout completed. sessionId={}, paymentStatus={}, customerId={}, clientReferenceId={}, customerEmail={}, subscriptionId={}", session.getId(), session.getPaymentStatus(), session.getCustomer(), session.getClientReferenceId(), customerEmail(session), session.getSubscription());
     }
 
     private Event constructEvent(String payload, String signature) {
@@ -145,7 +118,7 @@ public class StripePaymentService {
                     "Invalid Stripe webhook signature"
             );
         } catch (RuntimeException exception) {
-            log.warn("Rejected Stripe webhook because payload could not be parsed", exception);
+            log.warn("Rejected Stripe webhook because payload could not be parsed. reason={}", exception.getMessage());
             throw new StripePaymentException(
                     HttpStatus.BAD_REQUEST.value(),
                     "Invalid Stripe webhook payload"

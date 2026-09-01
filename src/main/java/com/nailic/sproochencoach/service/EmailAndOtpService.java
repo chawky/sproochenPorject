@@ -34,12 +34,9 @@ public class EmailAndOtpService {
     private long expirationOtp;
 
     public void sendEmailAndSaveOtp(String to) {
-        log.debug("Preparing verification OTP email for {}", maskEmail(to));
-
         AppUser user = appUserRepo.findByEmail(to).orElse(null);
 
         if (user == null) {
-            log.debug("OTP email request ignored because user does not exist: {}", maskEmail(to));
             return;
         }
 
@@ -88,7 +85,6 @@ public class EmailAndOtpService {
 
         try {
             mailSender.send(message);
-            log.debug("Verification OTP email sent for user id {}", user.getId());
         } catch (RuntimeException exception) {
             log.error("Failed to send verification OTP email for user id {}", user.getId(), exception);
             throw exception;
@@ -96,8 +92,6 @@ public class EmailAndOtpService {
     }
 
     public Boolean verifyOtp(VerifyOtpRequest request) {
-        log.debug("Verifying OTP for {}", maskEmail(request.getEmail()));
-
         AppUser user = appUserRepo.findByEmail(request.getEmail()).orElse(null);
         if (user == null) {
             log.warn("OTP verification failed because user does not exist: {}", maskEmail(request.getEmail()));
@@ -130,14 +124,10 @@ public class EmailAndOtpService {
         appUserRepo.save(user);
         otpRepo.delete(otp);
 
-        log.debug("OTP verification succeeded for user id {}", user.getId());
-
         return true;
     }
 
     public void resendEmailAndSaveOtp(String email) {
-        log.debug("Preparing OTP resend email for {}", maskEmail(email));
-
         AppUser user = appUserRepo.findByEmail(email).orElse(null);
 
         if (user == null) {
@@ -195,7 +185,6 @@ public class EmailAndOtpService {
 
         try {
             mailSender.send(message);
-            log.debug("OTP resend email sent for user id {}", user.getId());
         } catch (RuntimeException exception) {
             log.error("Failed to send OTP resend email for user id {}", user.getId(), exception);
             throw exception;

@@ -54,21 +54,10 @@ public class ImageDescriptionService {
     void loadPromptFiles() {
         imageDescriptionPrompt = promptFileService.read(imageGenerationPromptResource);
         imageDescriptionEvaluationPrompt = promptFileService.read(imageDescriptionEvaluationPromptResource);
-        log.debug(
-                "Image description prompts loaded. generationCharacters={}, evaluationCharacters={}",
-                imageDescriptionPrompt.length(),
-                imageDescriptionEvaluationPrompt.length()
-        );
     }
 
 
     public GeneratedImageDto generateImage(ExerciseRequestDto request) {
-        log.debug(
-                "Generating image description exercise. level={}, topic={}",
-                request.getLevel(),
-                request.getTopic()
-        );
-
         String promptInstruction = imageDescriptionPrompt.formatted(
                 request.getLevel(),
                 request.getTopic()
@@ -87,13 +76,6 @@ public class ImageDescriptionService {
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription) {
-        log.debug(
-                "Generating image description evaluation. audioName={}, audioSize={}, imageDescriptionLength={}",
-                audio.getOriginalFilename(),
-                audio.getSize(),
-                imageDescription == null ? 0 : imageDescription.length()
-        );
-
         String transcription = speakingService.transcribeAudio(audio);
 
         String content = aiChatClient.complete(
@@ -107,19 +89,9 @@ public class ImageDescriptionService {
                     SpeakingEvaluation.class
             );
             userProgressService.recordEvaluation("IMAGE_DESCRIPTION", "image description evaluation", evaluation.getScore());
-            log.debug(
-                    "Image description evaluation parsed successfully. score={}, corrections={}",
-                    evaluation.getScore(),
-                    evaluation.getCorrections() == null ? 0 : evaluation.getCorrections().size()
-            );
             return evaluation;
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse AI provider image description evaluation JSON. jacksonMessage={}, aiReturned={}",
-                    exception.getMessage(),
-                    content,
-                    exception
-            );
+            log.error("Failed to parse AI provider image description evaluation JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());
 
             throw new AiProviderException(
                     HttpStatus.BAD_GATEWAY.value(),

@@ -63,21 +63,9 @@ public class SpeakingService {
         speakingGenerationPrompt = promptFileService.read(speakingGenerationPromptResource);
         speakingEvaluationPrompt = promptFileService.read(speakingEvaluationPromptResource);
         transcriptionPrompt = promptFileService.read(transcriptionPromptResource);
-        log.debug(
-                "Speaking prompts loaded. generationCharacters={}, evaluationCharacters={}, transcriptionCharacters={}",
-                speakingGenerationPrompt.length(),
-                speakingEvaluationPrompt.length(),
-                transcriptionPrompt.length()
-        );
     }
 
     public SpeakingDto generateSpeakingPrompt(ExerciseRequestDto exerciseRequestDto) {
-        log.debug(
-                "Generating speaking prompt. level={}, topic={}, type={}",
-                exerciseRequestDto.getLevel(),
-                exerciseRequestDto.getTopic(),
-                exerciseRequestDto.getType()
-        );
         SpeakingDto exercise = audioExerciseGenerationService.generateAudioExercise(
                 exerciseRequestDto,
                 speakingGenerationPrompt,
@@ -89,8 +77,6 @@ public class SpeakingService {
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio) {
-        log.debug("Generating speaking evaluation. audioName={}, audioSize={}", audio.getOriginalFilename(), audio.getSize());
-
         String transcription = transcribeAudio(audio);
 
         String content = aiChatClient.complete(
@@ -104,15 +90,9 @@ public class SpeakingService {
                     SpeakingEvaluation.class
             );
             userProgressService.recordEvaluation("SPEAKING", "speaking evaluation", evaluation.getScore());
-            log.debug("Speaking evaluation parsed successfully. score={}, corrections={}", evaluation.getScore(), evaluation.getCorrections() == null ? 0 : evaluation.getCorrections().size());
             return evaluation;
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse AI provider speaking evaluation JSON. jacksonMessage={}, aiReturned={}",
-                    exception.getMessage(),
-                    content,
-                    exception
-            );
+            log.error("Failed to parse AI provider speaking evaluation JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());
 
             throw new AiProviderException(
                     HttpStatus.BAD_GATEWAY.value(),
@@ -122,8 +102,6 @@ public class SpeakingService {
     }
 
     public String transcribeAudio(MultipartFile audio) {
-        log.debug("Sending audio to Groq transcription. audioName={}, audioSize={}", audio.getOriginalFilename(), audio.getSize());
-
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
         body.add("file", audio.getResource());
@@ -140,11 +118,9 @@ public class SpeakingService {
                     .retrieve()
                     .body(String.class);
 
-            log.debug("Groq transcription response: {}", transcription);
-
             return transcription;
         } catch (Exception exception) {
-            log.error("Groq transcription request failed", exception);
+            log.error("Groq transcription request failed. audioName={}, audioSize={}, reason={}", audio.getOriginalFilename(), audio.getSize(), exception.getMessage());
 
             throw exception;
         }

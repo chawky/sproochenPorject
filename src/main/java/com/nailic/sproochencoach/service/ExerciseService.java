@@ -40,17 +40,9 @@ public class ExerciseService {
     @PostConstruct
     void loadPromptFiles() {
         exerciseGenerationPrompt = promptFileService.read(exerciseGenerationPromptResource);
-        log.debug("Exercise generation prompt loaded. characters={}", exerciseGenerationPrompt.length());
     }
 
     public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
-        log.debug(
-                "Generating text exercise. level={}, topic={}, type={}",
-                exerciseRequestDto.getLevel(),
-                exerciseRequestDto.getTopic(),
-                exerciseRequestDto.getType()
-        );
-
         String prompt = exerciseGenerationPrompt.formatted(
                 exerciseRequestDto.getType(),
                 exerciseRequestDto.getLevel(),
@@ -65,15 +57,9 @@ public class ExerciseService {
                     GeneratedExerciseDto.class
             );
             userProgressService.recordGeneratedExercise("TEXT_EXERCISE", exerciseRequestDto);
-            log.debug("Text exercise generated successfully. type={}", exercise.getType());
             return exercise;
         } catch (JacksonException exception) {
-            log.error(
-                    "Failed to parse AI provider text exercise JSON. jacksonMessage={}, aiReturned={}",
-                    exception.getMessage(),
-                    content,
-                    exception
-            );
+            log.error("Failed to parse AI provider text exercise JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());
 
             throw new AiProviderException(
                     HttpStatus.BAD_GATEWAY.value(),

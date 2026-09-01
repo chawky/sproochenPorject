@@ -3,8 +3,6 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.UserLoginDay;
 import com.nailic.sproochencoach.repository.UserLoginDayRepo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,7 +12,6 @@ import java.util.List;
 
 @Service
 public class UserLoginDayService {
-    private static final Logger log = LoggerFactory.getLogger(UserLoginDayService.class);
     private static final ZoneId STREAK_ZONE = ZoneId.of("Europe/Luxembourg");
 
     private final UserLoginDayRepo userLoginDayRepo;
@@ -28,7 +25,6 @@ public class UserLoginDayService {
         LocalDate today = today();
 
         if (userLoginDayRepo.existsByUser_IdAndLoginDate(user.getId(), today)) {
-            log.debug("Login day already recorded. userId={}, loginDate={}", user.getId(), today);
             return;
         }
 
@@ -37,8 +33,6 @@ public class UserLoginDayService {
         loginDay.setLoginDate(today);
 
         userLoginDayRepo.save(loginDay);
-
-        log.debug("Login day recorded. userId={}, loginDate={}", user.getId(), today);
     }
 
     public LoginStreakSummary getLoginStreakSummary(Integer userId) {
