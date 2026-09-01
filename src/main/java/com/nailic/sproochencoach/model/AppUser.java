@@ -44,6 +44,9 @@ public class AppUser extends BaseModel implements UserDetails {
       inverseJoinColumns = @JoinColumn(name = "role_id"))
   private Set<AppRole> roles = new HashSet<>();
 
+  @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL , orphanRemoval = true )
+  private SubscriptionPlan subscriptionPlan;
+
   /**
    * Returns the authorities granted to the user. Cannot return <code>null</code>.
    *
