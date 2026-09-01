@@ -1,8 +1,8 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.dto.StripeSessionURLDto;
+import com.nailic.sproochencoach.exceptions.StripePaymentException;
 import com.nailic.sproochencoach.model.AppUser;
-import com.stripe.Stripe;
 import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
@@ -15,89 +15,149 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 public class StripePaymentService {
     private static final Logger log = LoggerFactory.getLogger(StripePaymentService.class);
+
+    private final StripeClient stripeClient;
+    private final LoggedInUser loggedInUser;
+
     @Value("${stripe.price-id}")
     private String stripePriceId;
-    @Value("${stripe.sucess-url}")
-    private String stripeSucessUrl;
+    @Value("${stripe.success-url}")
+    private String stripeSuccessUrl;
     @Value("${stripe.cancel-url}")
     private String stripeCancelUrl;
-    private final StripeClient stripeClient;
     @Value("${stripe.webhook-secret}")
     private String stripeWebhookSecret;
 
-    public StripeSessionURLDto createStripeCheckoutSession(Authentication authentication) throws StripeException {
+    public StripeSessionURLDto createStripeCheckoutSession() {
+        AppUser user = loggedInUser.get();
 
-        if(authentication==null || !authentication.isAuthenticated()) {
-            throw new UsernameNotFoundException("Authentication object is null , or user not authenticated");
+        try {
+            SessionCreateParams params =
+                    SessionCreateParams.builder()
+                            .setSuccessUrl(stripeSuccessUrl)
+                            .setCancelUrl(stripeCancelUrl)
+                            .setCustomerEmail(user.getEmail())
+                            .addLineItem(
+                                    SessionCreateParams.LineItem.builder()
+                                            .setPrice(stripePriceId)
+                                            .setQuantity(1L)
+                                            .build()
+                            )
+                            .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
+                            .build();
+
+            Session session = stripeClient.v1().checkout().sessions().create(params);
+            String sessionUrl = session.getUrl();
+
+            if (!StringUtils.hasText(sessionUrl)) {
+                log.error(
+                        "Stripe checkout session created without redirect URL. userId={}, sessionId={}",
+                        user.getId(),
+                        session.getId()
+                );
+                throw new StripePaymentException(
+                        HttpStatus.BAD_GATEWAY.value(),
+                        "Stripe checkout session did not include a redirect URL"
+                );
+            }
+
+            log.debug(
+                    "Stripe checkout session created. userId={}, sessionId={}",
+                    user.getId(),
+                    session.getId()
+            );
+
+            return StripeSessionURLDto.builder()
+                    .stripeSessionUrl(sessionUrl)
+                    .build();
+        } catch (StripeException exception) {
+            log.error(
+                    "Stripe checkout session creation failed. userId={}, stripeStatusCode={}, stripeRequestId={}",
+                    user.getId(),
+                    exception.getStatusCode(),
+                    exception.getRequestId(),
+                    exception
+            );
+            throw new StripePaymentException(
+                    HttpStatus.BAD_GATEWAY.value(),
+                    "Unable to create Stripe checkout session"
+            );
         }
-        AppUser user =  (AppUser)authentication.getPrincipal();
-
-
-        SessionCreateParams params =
-                SessionCreateParams.builder()
-                        .setSuccessUrl(stripeSucessUrl)
-                        .setCancelUrl(stripeCancelUrl)
-                        .setCustomerEmail(user.getEmail())
-                        .addLineItem(
-                                SessionCreateParams.LineItem.builder()
-                                        .setPrice(stripePriceId)
-                                        .setQuantity(1L)
-                                        .build()
-                        )
-                        .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                        .build();
-
-        Session session = stripeClient.v1().checkout().sessions().create(params);
-
-        return StripeSessionURLDto.builder().stripeSessionUrl(session.getUrl()).build();
-
     }
 
-    public void constructEvent(String payload, String signature)
-            throws SignatureVerificationException {
+    public void handleWebhook(String payload, String signature) {
+        log.info("Stripe webhook request received. payloadLength={}", payload.length());
 
-        Event event = Webhook.constructEvent(
-                payload,
-                signature,
-                stripeWebhookSecret
-        );
-
+        Event event = constructEvent(payload, signature);
         String eventType = event.getType();
-        String version = event.getApiVersion();
+
+        if (!"checkout.session.completed".equals(eventType)) {
+            log.debug("Ignoring unsupported Stripe event. eventType={}", eventType);
+            return;
+        }
+
         StripeObject dataObject = event
                 .getDataObjectDeserializer()
                 .getObject()
                 .orElse(null);
-        log.info("Event API version: {}", event.getApiVersion());
-        log.info("Stripe Java API version: {}", Stripe.API_VERSION);
-        if ("checkout.session.completed".equals(eventType)
-                && dataObject instanceof Session session) {
 
-            String sessionId = session.getId();
-            String paymentStatus = session.getPaymentStatus();
-            String customerId = session.getCustomer();
-            String subscriptionId = session.getSubscription();
-
-            String customerEmail = null;
-
-            if (session.getCustomerDetails() != null) {
-                customerEmail = session.getCustomerDetails().getEmail();
-            }
-
-            log.info("Stripe event received: {}", eventType);
-            log.info("Stripe session id: {}", sessionId);
-            log.info("Stripe payment status: {}", paymentStatus);
-            log.info("Stripe customer id: {}", customerId);
-            log.info("Stripe customer email: {}", customerEmail);
-            log.info("Stripe subscription id: {}", subscriptionId);
+        if (!(dataObject instanceof Session session)) {
+            log.error(
+                    "Stripe checkout session event could not be deserialized. eventType={}, eventApiVersion={}",
+                    eventType,
+                    event.getApiVersion()
+            );
+            throw new StripePaymentException(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "Stripe webhook payload could not be processed"
+            );
         }
+
+        log.info(
+                "Stripe checkout completed. sessionId={}, paymentStatus={}, customerId={}, customerEmail={}, subscriptionId={}",
+                session.getId(),
+                session.getPaymentStatus(),
+                session.getCustomer(),
+                customerEmail(session),
+                session.getSubscription()
+        );
+    }
+
+    private Event constructEvent(String payload, String signature) {
+        try {
+            return Webhook.constructEvent(
+                    payload,
+                    signature,
+                    stripeWebhookSecret
+            );
+        } catch (SignatureVerificationException exception) {
+            log.warn("Rejected Stripe webhook because signature verification failed");
+            throw new StripePaymentException(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "Invalid Stripe webhook signature"
+            );
+        } catch (RuntimeException exception) {
+            log.warn("Rejected Stripe webhook because payload could not be parsed", exception);
+            throw new StripePaymentException(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "Invalid Stripe webhook payload"
+            );
+        }
+    }
+
+    private String customerEmail(Session session) {
+        if (session.getCustomerDetails() == null) {
+            return null;
+        }
+
+        return session.getCustomerDetails().getEmail();
     }
 }

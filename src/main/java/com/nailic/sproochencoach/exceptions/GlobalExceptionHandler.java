@@ -100,12 +100,12 @@ public class GlobalExceptionHandler {
                 );
     }
 
-    @ExceptionHandler(StripeException.class)
-    public ResponseEntity<ApiResponse<Void>> handleStripeExceptionError(
-            StripeException exception
+    @ExceptionHandler(StripePaymentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStripePaymentException(
+            StripePaymentException exception
     ) {
         log.error(
-                "Handling StripeException. statusCode={}, message={}",
+                "Handling StripePaymentException. statusCode={}, message={}",
                 exception.getStatusCode(),
                 exception.getMessage()
         );
