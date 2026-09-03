@@ -58,15 +58,18 @@ public class AiChatClient {
     private final RestClient openRouterRestClient;
     private final RestClient anthropicRestClient;
     private final ObjectMapper objectMapper;
+    private final AiUsageService aiUsageService;
 
     public AiChatClient(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("anthropicRestClient") RestClient anthropicRestClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AiUsageService aiUsageService
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.anthropicRestClient = anthropicRestClient;
         this.objectMapper = objectMapper;
+        this.aiUsageService = aiUsageService;
     }
 
     public String complete(String userPrompt, String requestName) {
@@ -110,7 +113,11 @@ public class AiChatClient {
                 )
                 .body(String.class);
 
-        String content = extractOpenRouterText(responseBody, requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, "OpenRouter", requestName);
+        String content = extractOpenRouterText(responseMap, requestName);
+        TokenUsage tokenUsage = extractOpenRouterTokenUsage(responseMap);
+        recordTokenUsage("openrouter", openRouterModel, requestName, tokenUsage);
+
         return content;
     }
 
@@ -153,7 +160,11 @@ public class AiChatClient {
                 )
                 .body(String.class);
 
-        String content = extractAnthropicText(responseBody, requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi", requestName);
+        String content = extractAnthropicText(responseMap, requestName);
+        TokenUsage tokenUsage = extractAnthropicTokenUsage(responseMap);
+        recordTokenUsage("kimi", kimiModel, requestName, tokenUsage);
+
         return content;
     }
 
@@ -192,9 +203,7 @@ public class AiChatClient {
         throw new AiProviderException(statusCode.value(), providerMessage);
     }
 
-    private String extractOpenRouterText(String responseBody, String requestName) {
-        Map<?, ?> responseMap = readResponseMap(responseBody, "OpenRouter", requestName);
-
+    private String extractOpenRouterText(Map<?, ?> responseMap, String requestName) {
         Object choicesObject = responseMap.get("choices");
         if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
             throw invalidResponse("OpenRouter", requestName, "choices are missing");
@@ -218,9 +227,7 @@ public class AiChatClient {
         return content;
     }
 
-    private String extractAnthropicText(String responseBody, String requestName) {
-        Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi", requestName);
-
+    private String extractAnthropicText(Map<?, ?> responseMap, String requestName) {
         Object contentObject = responseMap.get("content");
         if (!(contentObject instanceof List<?> contentBlocks) || contentBlocks.isEmpty()) {
             throw invalidResponse("Kimi", requestName, "content blocks are missing");
@@ -242,6 +249,64 @@ public class AiChatClient {
         }
 
         return textBuilder.toString();
+    }
+
+    private TokenUsage extractOpenRouterTokenUsage(Map<?, ?> responseMap) {
+        Object usageObject = responseMap.get("usage");
+        if (!(usageObject instanceof Map<?, ?> usageMap)) {
+            return TokenUsage.empty();
+        }
+
+        Integer inputTokens = integerValue(usageMap.get("prompt_tokens"));
+        Integer outputTokens = integerValue(usageMap.get("completion_tokens"));
+        Integer totalTokens = integerValue(usageMap.get("total_tokens"));
+
+        return new TokenUsage(inputTokens, outputTokens, totalTokens(inputTokens, outputTokens, totalTokens));
+    }
+
+    private TokenUsage extractAnthropicTokenUsage(Map<?, ?> responseMap) {
+        Object usageObject = responseMap.get("usage");
+        if (!(usageObject instanceof Map<?, ?> usageMap)) {
+            return TokenUsage.empty();
+        }
+
+        Integer inputTokens = integerValue(usageMap.get("input_tokens"));
+        Integer outputTokens = integerValue(usageMap.get("output_tokens"));
+
+        return new TokenUsage(inputTokens, outputTokens, totalTokens(inputTokens, outputTokens, null));
+    }
+
+    private void recordTokenUsage(String provider, String model, String requestName, TokenUsage tokenUsage) {
+        aiUsageService.recordChatUsage(
+                provider,
+                model,
+                requestName,
+                tokenUsage.inputTokens(),
+                tokenUsage.outputTokens(),
+                tokenUsage.totalTokens()
+        );
+    }
+
+    private Integer integerValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        return null;
+    }
+
+    private Integer totalTokens(Integer inputTokens, Integer outputTokens, Integer providerTotalTokens) {
+        if (providerTotalTokens != null) {
+            return providerTotalTokens;
+        }
+
+        if (inputTokens == null && outputTokens == null) {
+            return null;
+        }
+
+        int input = inputTokens == null ? 0 : inputTokens;
+        int output = outputTokens == null ? 0 : outputTokens;
+        return input + output;
     }
 
     private String contentBlockTypes(List<?> contentBlocks) {
@@ -274,5 +339,11 @@ public class AiChatClient {
                 HttpStatus.BAD_GATEWAY.value(),
                 providerName + " returned an invalid response: " + reason
         );
+    }
+
+    private record TokenUsage(Integer inputTokens, Integer outputTokens, Integer totalTokens) {
+        private static TokenUsage empty() {
+            return new TokenUsage(null, null, null);
+        }
     }
 }

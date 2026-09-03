@@ -117,7 +117,7 @@ public class AppUserService {
         return userDto;
     }
 
-    private ResponseUserDto toResponseUserDto(AppUser user) {
+    public ResponseUserDto toResponseUserDto(AppUser user) {
         ResponseUserDto response = new ResponseUserDto();
         response.setId(user.getId());
         response.setUsername(user.getUsername());
@@ -129,6 +129,8 @@ public class AppUserService {
         response.setPostalCode(user.getPostalCode());
         response.setCity(user.getCity());
         response.setAddressInfo(user.getAddressInfo());
+        response.setEmailVerified(user.isEnabled());
+        response.setAdminDisabled(user.isAdminDisabled());
         response.setRoles(toRoleNames(user));
         response.setSubscription(toSubscriptionInfoDto(user.getSubscriptionPlan()));
         return response;

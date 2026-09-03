@@ -22,6 +22,8 @@ public class ResponseUserDto {
   private String postalCode;
   private String city;
   private String addressInfo;
+  private boolean emailVerified;
+  private boolean adminDisabled;
   private Set<String> roles = new HashSet<>();
   private SubscriptionInfoDto subscription;
   private String jwt;

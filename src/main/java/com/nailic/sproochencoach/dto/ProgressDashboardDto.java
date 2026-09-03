@@ -18,5 +18,6 @@ public class ProgressDashboardDto {
     private int totalActivities;
     private int evaluatedActivities;
     private Double averageRatingOverall;
+    private String latestExerciseName;
     private List<SkillProgressDto> skillProgress;
 }

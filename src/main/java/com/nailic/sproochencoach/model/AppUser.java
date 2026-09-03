@@ -37,6 +37,8 @@ public class AppUser extends BaseModel implements UserDetails {
   @Column private String addressInfo;
   @Column(nullable = false)
   private boolean enabled = false;
+  @Column(nullable = false)
+  private boolean adminDisabled = false;
   @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
       name = "app_user_roles",
@@ -77,7 +79,7 @@ public class AppUser extends BaseModel implements UserDetails {
    */
   @Override
   public boolean isAccountNonLocked() {
-    return true;
+    return !adminDisabled;
   }
 
   /**

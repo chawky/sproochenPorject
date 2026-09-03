@@ -39,6 +39,19 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadRequest(BadRequestException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(LocationProviderException.class)
     public ResponseEntity<ApiResponse<Void>> handleLocationProviderException(LocationProviderException exception) {
         log.error("Handling LocationProviderException. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());

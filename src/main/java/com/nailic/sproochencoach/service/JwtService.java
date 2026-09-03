@@ -57,6 +57,14 @@ public class JwtService {
       log.warn("JWT validation failed because subject does not match user email. userId={}", user.getId());
       return false;
     }
+    if (!user.isEnabled()) {
+      log.warn("JWT validation failed because user email is not verified. userId={}", user.getId());
+      return false;
+    }
+    if (!user.isAccountNonLocked()) {
+      log.warn("JWT validation failed because user account is disabled by admin. userId={}", user.getId());
+      return false;
+    }
     Claims claims = extractAllClaims(jwt);
     if (claims.getExpiration().before(new Date())) {
       log.warn("JWT validation failed because token is expired. userId={}", user.getId());

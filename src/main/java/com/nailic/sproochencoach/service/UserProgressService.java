@@ -3,8 +3,10 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.ProgressDashboardDto;
 import com.nailic.sproochencoach.dto.SkillProgressDto;
+import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.UserProgress;
+import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.UserProgressRepo;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -20,15 +22,18 @@ public class UserProgressService {
     private final LoggedInUser loggedInUser;
     private final UserProgressRepo userProgressRepo;
     private final UserLoginDayService userLoginDayService;
+    private final AppUserRepo appUserRepo;
 
     public UserProgressService(
             LoggedInUser loggedInUser,
             UserProgressRepo userProgressRepo,
-            UserLoginDayService userLoginDayService
+            UserLoginDayService userLoginDayService,
+            AppUserRepo appUserRepo
     ) {
         this.loggedInUser = loggedInUser;
         this.userProgressRepo = userProgressRepo;
         this.userLoginDayService = userLoginDayService;
+        this.appUserRepo = appUserRepo;
     }
 
     public void recordGeneratedExercise(String exerciseType, ExerciseRequestDto request) {
@@ -41,6 +46,17 @@ public class UserProgressService {
 
     public ProgressDashboardDto getCurrentUserProgress() {
         AppUser user = loggedInUser.get();
+        return buildProgressDashboard(user);
+    }
+
+    public ProgressDashboardDto getUserProgress(Integer userId) {
+        AppUser user = appUserRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        return buildProgressDashboard(user);
+    }
+
+    private ProgressDashboardDto buildProgressDashboard(AppUser user) {
         List<UserProgress> progressRecords = userProgressRepo.findAllByUser_IdOrderByIdDesc(user.getId());
         UserLoginDayService.LoginStreakSummary loginStreakSummary =
                 userLoginDayService.getLoginStreakSummary(user.getId());
@@ -55,6 +71,7 @@ public class UserProgressService {
         dashboard.setTotalActivities(progressRecords.size());
         dashboard.setEvaluatedActivities(evaluatedCount(progressRecords));
         dashboard.setAverageRatingOverall(averageRating(progressRecords));
+        dashboard.setLatestExerciseName(latestExerciseName(progressRecords));
         dashboard.setSkillProgress(skillProgress(progressRecords));
 
         return dashboard;
