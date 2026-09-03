@@ -6,5 +6,6 @@ import java.util.List;
 
 @Data
 public class VocabularyDto {
+    private Long attemptId;
     private List<UsefulSentencesDto> usefulSentences;
 }

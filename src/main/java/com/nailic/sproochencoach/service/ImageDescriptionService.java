@@ -4,7 +4,6 @@ import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedImageDto;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +18,8 @@ import tools.jackson.databind.ObjectMapper;
 public class ImageDescriptionService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageDescriptionService.class);
+    private static final String IMAGE_GENERATION_PROMPT_KEY = "image-generation";
+    private static final String IMAGE_EVALUATION_PROMPT_KEY = "image-description-evaluation";
 
     @Value("${ai.prompts.image-generation}")
     private Resource imageGenerationPromptResource;
@@ -31,8 +32,7 @@ public class ImageDescriptionService {
     private final SpeakingService speakingService;
     private final ObjectMapper objectMapper;
     private final UserProgressService userProgressService;
-    private String imageDescriptionPrompt;
-    private String imageDescriptionEvaluationPrompt;
+    private final ExerciseConfigService exerciseConfigService;
 
     public ImageDescriptionService(
             AiChatClient aiChatClient,
@@ -40,7 +40,8 @@ public class ImageDescriptionService {
             PromptFileService promptFileService,
             SpeakingService speakingService,
             ObjectMapper objectMapper,
-            UserProgressService userProgressService
+            UserProgressService userProgressService,
+            ExerciseConfigService exerciseConfigService
     ) {
         this.promptFileService = promptFileService;
         this.aiChatClient = aiChatClient;
@@ -48,19 +49,15 @@ public class ImageDescriptionService {
         this.speakingService = speakingService;
         this.objectMapper = objectMapper;
         this.userProgressService = userProgressService;
+        this.exerciseConfigService = exerciseConfigService;
     }
-
-    @PostConstruct
-    void loadPromptFiles() {
-        imageDescriptionPrompt = promptFileService.read(imageGenerationPromptResource);
-        imageDescriptionEvaluationPrompt = promptFileService.read(imageDescriptionEvaluationPromptResource);
-    }
-
 
     public GeneratedImageDto generateImage(ExerciseRequestDto request) {
-        String promptInstruction = imageDescriptionPrompt.formatted(
-                request.getLevel(),
-                request.getTopic()
+        ExerciseRequestDto normalizedRequest = exerciseConfigService.normalizedRequest(request);
+        String promptInstruction = promptFileService.readWithAdminGuidance(IMAGE_GENERATION_PROMPT_KEY, imageGenerationPromptResource)
+                .formatted(
+                normalizedRequest.getLevel(),
+                exerciseConfigService.topicLabel(normalizedRequest.getTopic())
         );
 
         String imageDescription = aiChatClient.complete(
@@ -71,15 +68,24 @@ public class ImageDescriptionService {
         GeneratedImageDto generatedImageDto = new GeneratedImageDto();
         generatedImageDto.setImage(aiImageClient.generateImage(imageDescription));
         generatedImageDto.setImageDescription(imageDescription);
-        userProgressService.recordGeneratedExercise("IMAGE_DESCRIPTION", request);
+        generatedImageDto.setAttemptId(userProgressService.recordGeneratedExercise("IMAGE_DESCRIPTION", normalizedRequest));
         return generatedImageDto;
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription) {
-        String transcription = speakingService.transcribeAudio(audio);
+        return generateEvaluation(audio, imageDescription, null);
+    }
+
+    public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription, Long audioDurationSeconds) {
+        return generateEvaluation(audio, imageDescription, audioDurationSeconds, null);
+    }
+
+    public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription, Long audioDurationSeconds, Long attemptId) {
+        String transcription = speakingService.transcribeAudio(audio, audioDurationSeconds);
 
         String content = aiChatClient.complete(
-                imageDescriptionEvaluationPrompt.formatted(imageDescription, transcription),
+                promptFileService.readWithAdminGuidance(IMAGE_EVALUATION_PROMPT_KEY, imageDescriptionEvaluationPromptResource)
+                        .formatted(imageDescription, transcription),
                 "image description evaluation"
         );
 
@@ -88,7 +94,13 @@ public class ImageDescriptionService {
                     content,
                     SpeakingEvaluation.class
             );
-            userProgressService.recordEvaluation("IMAGE_DESCRIPTION", "image description evaluation", evaluation.getScore());
+            userProgressService.recordEvaluation(
+                    "IMAGE_DESCRIPTION",
+                    "image description evaluation",
+                    evaluation.getScore(),
+                    attemptId,
+                    evaluation.getTranscript()
+            );
             return evaluation;
         } catch (JacksonException exception) {
             log.error("Failed to parse AI provider image description evaluation JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());

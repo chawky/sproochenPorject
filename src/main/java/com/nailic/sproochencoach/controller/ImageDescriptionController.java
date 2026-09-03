@@ -5,6 +5,7 @@ import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedImageDto;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.service.ImageDescriptionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,7 @@ public class ImageDescriptionController {
     private final ImageDescriptionService imageDescriptionService;
     @PostMapping("/generate-image")
     public ResponseEntity<ApiResponse<GeneratedImageDto>> generateImage(
-            @RequestBody ExerciseRequestDto request
+            @Valid @RequestBody ExerciseRequestDto request
     ) {
         GeneratedImageDto image = imageDescriptionService.generateImage(request);
 
@@ -42,10 +43,12 @@ public class ImageDescriptionController {
     )
     public ResponseEntity<ApiResponse<SpeakingEvaluation>> receiveImageDescriptionRecording(
             @RequestParam("audio") MultipartFile audio,
-            @RequestParam("imageDescription") String imageDescription
+            @RequestParam("imageDescription") String imageDescription,
+            @RequestParam(value = "durationSeconds", required = false) Long durationSeconds,
+            @RequestParam(value = "attemptId", required = false) Long attemptId
     ) {
 
-        SpeakingEvaluation evaluation = imageDescriptionService.generateEvaluation(audio, imageDescription);
+        SpeakingEvaluation evaluation = imageDescriptionService.generateEvaluation(audio, imageDescription, durationSeconds, attemptId);
 
         ApiResponse<SpeakingEvaluation> response =
                 new ApiResponse<>(

@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -15,4 +17,5 @@ public class AdminAiUsageSummaryDto {
     private long totalInputTokens;
     private long totalOutputTokens;
     private long totalTokens;
+    private BigDecimal totalEstimatedCostUsd;
 }

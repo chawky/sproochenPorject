@@ -18,21 +18,29 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class AudioExerciseGenerationService {
     private static final Logger log = LoggerFactory.getLogger(AudioExerciseGenerationService.class);
+    private static final String TTS_PROVIDER = "elevenlabs";
+    private static final String TTS_MODEL = "eleven_multilingual_v2";
 
     @Value("${ai.elevenlabs.voice-id}")
     private String voiceId;
     private final AiChatClient aiChatClient;
     private final RestClient ttsRestClient;
     private final ObjectMapper objectMapper;
+    private final AiUsageService aiUsageService;
+    private final ExerciseConfigService exerciseConfigService;
 
     public AudioExerciseGenerationService(
             AiChatClient aiChatClient,
             @Qualifier("ttsRestClient") RestClient ttsRestClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AiUsageService aiUsageService,
+            ExerciseConfigService exerciseConfigService
     ) {
         this.aiChatClient = aiChatClient;
         this.ttsRestClient = ttsRestClient;
         this.objectMapper = objectMapper;
+        this.aiUsageService = aiUsageService;
+        this.exerciseConfigService = exerciseConfigService;
     }
 
     public <T extends AudioExerciseDto> T generateAudioExercise(
@@ -41,10 +49,11 @@ public class AudioExerciseGenerationService {
             Class<T> responseType,
             String exerciseName
     ) {
+        ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         String prompt = promptTemplate.formatted(
-                exerciseRequestDto.getLevel(),
-                exerciseRequestDto.getTopic(),
-                exerciseRequestDto.getType()
+                request.getLevel(),
+                exerciseConfigService.topicLabel(request.getTopic()),
+                request.getType()
         );
 
         String content = aiChatClient.complete(prompt, exerciseName);
@@ -57,7 +66,7 @@ public class AudioExerciseGenerationService {
 
             TtsRequest ttsRequest = new TtsRequest(
                     result.getQuestion(),
-                    "eleven_multilingual_v2"
+                    TTS_MODEL
             );
 
             byte[] audio;
@@ -75,6 +84,7 @@ public class AudioExerciseGenerationService {
             }
 
             result.setAudio(audio);
+            aiUsageService.recordCharacterUsage(TTS_PROVIDER, TTS_MODEL, exerciseName + " audio", ttsRequest.getText());
             return result;
         } catch (JacksonException exception) {
             log.error("Failed to parse AI provider {} JSON. contentLength={}, jacksonMessage={}", exerciseName, content == null ? 0 : content.length(), exception.getMessage());

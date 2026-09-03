@@ -11,5 +11,6 @@ import lombok.Setter;
 @Setter
 public class AdminExerciseTypeOptionDto {
     private String code;
+    private String label;
     private boolean enabled = true;
 }

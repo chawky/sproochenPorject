@@ -1,6 +1,4 @@
 package com.nailic.sproochencoach.dto;
-
-import com.nailic.sproochencoach.model.LevelEnum;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,6 +11,6 @@ import lombok.Setter;
 public class AdminTopicOptionDto {
     private String code;
     private String label;
-    private LevelEnum level;
+    private String levelCode;
     private boolean enabled = true;
 }

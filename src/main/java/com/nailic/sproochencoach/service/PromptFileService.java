@@ -11,6 +11,11 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class PromptFileService {
     private static final Logger log = LoggerFactory.getLogger(PromptFileService.class);
+    private final PromptTemplateService promptTemplateService;
+
+    public PromptFileService(PromptTemplateService promptTemplateService) {
+        this.promptTemplateService = promptTemplateService;
+    }
 
     public String read(Resource resource) {
         try {
@@ -20,5 +25,9 @@ public class PromptFileService {
             log.error("Failed to load prompt resource {}", resource, exception);
             throw new IllegalStateException("Failed to load prompt file: " + resource, exception);
         }
+    }
+
+    public String readWithAdminGuidance(String key, Resource resource) {
+        return promptTemplateService.applyEditableContent(key, read(resource));
     }
 }

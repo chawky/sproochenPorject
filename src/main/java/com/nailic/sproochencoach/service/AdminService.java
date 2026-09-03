@@ -4,24 +4,25 @@ import com.nailic.sproochencoach.dto.AdminExerciseConfigDto;
 import com.nailic.sproochencoach.dto.AdminExerciseTypeOptionDto;
 import com.nailic.sproochencoach.dto.AdminLevelOptionDto;
 import com.nailic.sproochencoach.dto.AdminTopicOptionDto;
+import com.nailic.sproochencoach.dto.AdminAuditLogDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
+import com.nailic.sproochencoach.dto.AdminExerciseTypeConfigRequest;
 import com.nailic.sproochencoach.dto.AdminUserDetailDto;
 import com.nailic.sproochencoach.dto.AdminUserProgressDto;
 import com.nailic.sproochencoach.dto.AdminUserStatusUpdateRequest;
+import com.nailic.sproochencoach.dto.AdminLevelConfigRequest;
+import com.nailic.sproochencoach.dto.AdminTopicConfigRequest;
 import com.nailic.sproochencoach.dto.PageResponseDto;
 import com.nailic.sproochencoach.dto.ProgressDashboardDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
-import com.nailic.sproochencoach.model.ExerciseTypeEnum;
-import com.nailic.sproochencoach.model.LevelEnum;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
-import com.nailic.sproochencoach.model.TopicEnum;
-import com.nailic.sproochencoach.model.UserProgress;
+import com.nailic.sproochencoach.model.ExerciseAttempt;
 import com.nailic.sproochencoach.repository.AppUserRepo;
-import com.nailic.sproochencoach.repository.UserProgressRepo;
+import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -40,11 +41,13 @@ import java.util.Locale;
 public class AdminService {
     private final AppUserService appUserService;
     private final AppUserRepo appUserRepo;
-    private final UserProgressRepo userProgressRepo;
+    private final ExerciseAttemptRepo exerciseAttemptRepo;
     private final UserProgressService userProgressService;
     private final LoggedInUser loggedInUser;
     private final SubscriptionAccessService subscriptionAccessService;
     private final AiUsageService aiUsageService;
+    private final AdminAuditService adminAuditService;
+    private final ExerciseConfigService exerciseConfigService;
 
     @Transactional(readOnly = true)
     public PageResponseDto<ResponseUserDto> getUsers(
@@ -86,6 +89,7 @@ public class AdminService {
         return new AdminUserDetailDto(user, progress, aiUsage);
     }
 
+    @Transactional
     public AdminUserDetailDto updateUserStatus(Integer id, AdminUserStatusUpdateRequest request) {
         boolean adminDisabled = Boolean.TRUE.equals(request.getAdminDisabled());
 
@@ -95,18 +99,40 @@ public class AdminService {
 
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
+        boolean oldAdminDisabled = user.isAdminDisabled();
 
         user.setAdminDisabled(adminDisabled);
         appUserRepo.save(user);
+        if (oldAdminDisabled != adminDisabled) {
+            adminAuditService.recordUserStatusChange(
+                    loggedInUser.getId(),
+                    id,
+                    oldAdminDisabled,
+                    adminDisabled,
+                    request.getReason()
+            );
+        }
 
         return getUser(id);
+    }
+
+    public PageResponseDto<AdminAuditLogDto> getAuditLogs(
+            Integer actorUserId,
+            Integer targetUserId,
+            String targetType,
+            String targetId,
+            String action,
+            int page,
+            int size
+    ) {
+        return adminAuditService.getAuditLogs(actorUserId, targetUserId, targetType, targetId, action, page, size);
     }
 
     public PageResponseDto<AdminUserProgressDto> getUserProgress(Integer userId, int page, int size) {
         appUserService.findById(userId);
         int safePage = safePage(page);
         int safeSize = safeSize(size);
-        Page<UserProgress> progressPage = userProgressRepo.findByUser_Id(
+        Page<ExerciseAttempt> progressPage = exerciseAttemptRepo.findByUser_Id(
                 userId,
                 PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "id"))
         );
@@ -131,57 +157,74 @@ public class AdminService {
         return aiUsageService.getUserAiUsageSummary(userId);
     }
 
-    public PageResponseDto<AdminAiUsageDto> getUserAiUsage(Integer userId, int page, int size) {
+    public PageResponseDto<AdminAiUsageDto> getUserAiUsage(
+            Integer userId,
+            int page,
+            int size,
+            String provider,
+            String model,
+            LocalDateTime from,
+            LocalDateTime to
+    ) {
         appUserService.findById(userId);
 
-        return aiUsageService.getUserAiUsage(userId, page, size);
+        return aiUsageService.getUserAiUsage(userId, page, size, provider, model, from, to);
     }
 
     public AdminExerciseConfigDto getExerciseConfig() {
-        AdminExerciseConfigDto config = new AdminExerciseConfigDto();
-        config.setEditable(false);
-        config.setLevels(levelOptions());
-        config.setTopics(topicOptions());
-        config.setExerciseTypes(exerciseTypeOptions());
-
-        return config;
+        return exerciseConfigService.getConfig();
     }
 
-    private AdminUserProgressDto toAdminUserProgressDto(UserProgress progress) {
+    public AdminLevelOptionDto createLevel(AdminLevelConfigRequest request) {
+        return exerciseConfigService.createLevel(request);
+    }
+
+    public AdminLevelOptionDto updateLevel(String code, AdminLevelConfigRequest request) {
+        return exerciseConfigService.updateLevel(code, request);
+    }
+
+    public void deleteLevel(String code) {
+        exerciseConfigService.deleteLevel(code);
+    }
+
+    public AdminTopicOptionDto createTopic(AdminTopicConfigRequest request) {
+        return exerciseConfigService.createTopic(request);
+    }
+
+    public AdminTopicOptionDto updateTopic(String code, AdminTopicConfigRequest request) {
+        return exerciseConfigService.updateTopic(code, request);
+    }
+
+    public void deleteTopic(String code) {
+        exerciseConfigService.deleteTopic(code);
+    }
+
+    public AdminExerciseTypeOptionDto createType(AdminExerciseTypeConfigRequest request) {
+        return exerciseConfigService.createType(request);
+    }
+
+    public AdminExerciseTypeOptionDto updateType(String code, AdminExerciseTypeConfigRequest request) {
+        return exerciseConfigService.updateType(code, request);
+    }
+
+    public void deleteType(String code) {
+        exerciseConfigService.deleteType(code);
+    }
+
+    private AdminUserProgressDto toAdminUserProgressDto(ExerciseAttempt progress) {
         return new AdminUserProgressDto(
                 progress.getId(),
                 progress.getExerciseType(),
                 progress.getExerciseName(),
-                progress.getAverageRatingOverall()
+                progress.getStatus().name(),
+                progress.getLevel(),
+                progress.getTopic(),
+                progress.getAnswerType(),
+                progress.getAverageRatingOverall(),
+                progress.getGeneratedAt(),
+                progress.getCompletedAt(),
+                progress.getEvaluatedAt()
         );
-    }
-
-    private List<AdminLevelOptionDto> levelOptions() {
-        return Arrays.stream(LevelEnum.values())
-                .map(level -> new AdminLevelOptionDto(
-                        level.name(),
-                        level.getLabel(),
-                        level.getDescription(),
-                        true
-                ))
-                .toList();
-    }
-
-    private List<AdminTopicOptionDto> topicOptions() {
-        return Arrays.stream(TopicEnum.values())
-                .map(topic -> new AdminTopicOptionDto(
-                        topic.name(),
-                        topic.getLabel(),
-                        topic.getLevelEnum(),
-                        true
-                ))
-                .toList();
-    }
-
-    private List<AdminExerciseTypeOptionDto> exerciseTypeOptions() {
-        return Arrays.stream(ExerciseTypeEnum.values())
-                .map(type -> new AdminExerciseTypeOptionDto(type.name(), true))
-                .toList();
     }
 
     private String normalizedSearch(String search) {

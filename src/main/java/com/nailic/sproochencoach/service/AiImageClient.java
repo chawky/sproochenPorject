@@ -42,15 +42,18 @@ public class AiImageClient {
     private final RestClient openRouterRestClient;
     private final RestClient kimiImageRestClient;
     private final ObjectMapper objectMapper;
+    private final AiUsageService aiUsageService;
 
     public AiImageClient(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("kimiImageGenerationRestClient") RestClient kimiImageRestClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AiUsageService aiUsageService
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.kimiImageRestClient = kimiImageRestClient;
         this.objectMapper = objectMapper;
+        this.aiUsageService = aiUsageService;
     }
 
     public byte[] generateImage(String userPrompt) {
@@ -86,7 +89,9 @@ public class AiImageClient {
                 )
                 .body(String.class);
 
-        byte[] image = extractImageBytes(responseBody, "Kimi image", requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi image", requestName);
+        byte[] image = extractImageBytes(responseMap, "Kimi image", requestName);
+        recordKimiImageUsage(responseMap, requestName);
         return image;
     }
 
@@ -112,11 +117,17 @@ public class AiImageClient {
                 .body(String.class);
 
         byte[] image = extractImageBytes(responseBody, "OpenRouter image", requestName);
+        aiUsageService.recordImageUsage("openrouter-image", openRouterImageModel, requestName);
         return image;
     }
 
     private byte[] extractImageBytes(String responseBody, String providerName, String requestName) {
         Map<?, ?> responseMap = readResponseMap(responseBody, providerName, requestName);
+
+        return extractImageBytes(responseMap, providerName, requestName);
+    }
+
+    private byte[] extractImageBytes(Map<?, ?> responseMap, String providerName, String requestName) {
 
         Object dataObject = responseMap.get("data");
         if (!(dataObject instanceof List<?> data) || data.isEmpty()) {
@@ -138,6 +149,32 @@ public class AiImageClient {
         } catch (IllegalArgumentException exception) {
             throw invalidResponse(providerName, requestName, "base64 image is invalid");
         }
+    }
+
+    private void recordKimiImageUsage(Map<?, ?> responseMap, String requestName) {
+        Object usageObject = responseMap.get("usage");
+        if (!(usageObject instanceof Map<?, ?> usageMap)) {
+            aiUsageService.recordImageUsage("kimi-image", kimiImageModel, requestName);
+            return;
+        }
+
+        Integer inputTokens = integerValue(usageMap.get("input_tokens"));
+        Integer outputTokens = integerValue(usageMap.get("output_tokens"));
+        Integer totalTokens = integerValue(usageMap.get("total_tokens"));
+        if (inputTokens == null && outputTokens == null && totalTokens == null) {
+            aiUsageService.recordImageUsage("kimi-image", kimiImageModel, requestName);
+            return;
+        }
+
+        aiUsageService.recordChatUsage("kimi-image", kimiImageModel, requestName, inputTokens, outputTokens, totalTokens);
+    }
+
+    private Integer integerValue(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        return null;
     }
 
     private void handleError(String providerName, HttpStatusCode statusCode, byte[] responseBody, String requestName) {

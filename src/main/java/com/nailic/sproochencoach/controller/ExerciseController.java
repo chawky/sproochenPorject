@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.ApiResponse;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedExerciseDto;
 import com.nailic.sproochencoach.service.ExerciseService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +19,7 @@ public class ExerciseController {
     private final ExerciseService exerciseService;
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<GeneratedExerciseDto>> generateExercise(
-            @RequestBody  ExerciseRequestDto request
+            @Valid @RequestBody ExerciseRequestDto request
     ) {
         GeneratedExerciseDto exercise = exerciseService.generateExercise(request);
 

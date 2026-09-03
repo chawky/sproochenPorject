@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.ApiResponse;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.VocabularyDto;
 import com.nailic.sproochencoach.service.VocabularyService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +19,7 @@ public class VocabularyController {
     private final VocabularyService vocabularyService;
     @PostMapping("/vocabulary")
     public ResponseEntity<ApiResponse<VocabularyDto>> generateVocabExercise(
-            @RequestBody  ExerciseRequestDto request
+            @Valid @RequestBody ExerciseRequestDto request
     ) {
         VocabularyDto exercise = vocabularyService.generateVocabExercise(request);
 

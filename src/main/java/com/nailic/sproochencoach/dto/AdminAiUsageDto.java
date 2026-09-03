@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @AllArgsConstructor
@@ -19,5 +20,8 @@ public class AdminAiUsageDto {
     private Integer inputTokens;
     private Integer outputTokens;
     private Integer totalTokens;
+    private String usageUnit;
+    private Long usageAmount;
+    private BigDecimal estimatedCostUsd;
     private LocalDateTime createdAt;
 }

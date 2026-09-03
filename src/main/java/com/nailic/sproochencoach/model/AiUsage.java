@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -42,6 +43,15 @@ public class AiUsage {
 
     @Column
     private Integer totalTokens;
+
+    @Column
+    private String usageUnit;
+
+    @Column
+    private Long usageAmount;
+
+    @Column(precision = 12, scale = 6)
+    private BigDecimal estimatedCostUsd;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

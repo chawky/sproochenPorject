@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.ApiResponse;
 import com.nailic.sproochencoach.dto.AudioExerciseDto;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.service.ListeningService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +20,7 @@ public class ListeningController {
 
     @PostMapping("/listening")
     public ResponseEntity<ApiResponse<AudioExerciseDto>> generateListeningAudio(
-            @RequestBody ExerciseRequestDto request
+            @Valid @RequestBody ExerciseRequestDto request
     ) {
         AudioExerciseDto exercise = listeningService.generateListeningExercise(request);
 

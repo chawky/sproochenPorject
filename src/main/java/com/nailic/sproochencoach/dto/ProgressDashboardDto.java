@@ -16,6 +16,7 @@ public class ProgressDashboardDto {
     private int currentStreakDays;
     private LocalDate lastLoginDate;
     private int totalActivities;
+    private int completedActivities;
     private int evaluatedActivities;
     private Double averageRatingOverall;
     private String latestExerciseName;

@@ -8,6 +8,7 @@ import lombok.Setter;
 public class SkillProgressDto {
     private String exerciseType;
     private int totalActivities;
+    private int completedActivities;
     private int evaluatedActivities;
     private Double averageRatingOverall;
     private String latestExerciseName;
