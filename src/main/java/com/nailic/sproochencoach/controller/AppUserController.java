@@ -7,7 +7,6 @@ import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,7 +22,6 @@ public class AppUserController {
     private final AppUserService appUserService;
     private final EmailAndOtpService emailAndOtpService;
     private final LuxembourgLocationService luxembourgLocationService;
-    private final ModelMapper mapper;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ResponseUserDto>>> findAll() {
@@ -124,8 +122,7 @@ public class AppUserController {
     ) {
         AppUser user = (AppUser) authentication.getPrincipal();
 
-        ResponseUserDto responseUser =
-                mapper.map(user, ResponseUserDto.class);
+        ResponseUserDto responseUser = appUserService.findById(user.getId());
 
         return ResponseEntity.ok(
                 new ApiResponse<>(

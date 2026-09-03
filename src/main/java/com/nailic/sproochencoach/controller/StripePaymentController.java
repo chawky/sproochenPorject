@@ -32,4 +32,10 @@ public class StripePaymentController {
 
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/subscription/cancel")
+    public ResponseEntity<Void> cancelSubscription( ){
+        stripePaymentService.cancelSubscription();
+        return ResponseEntity.ok().build();
+    }
 }

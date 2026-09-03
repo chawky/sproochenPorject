@@ -23,5 +23,6 @@ public class ResponseUserDto {
   private String city;
   private String addressInfo;
   private Set<String> roles = new HashSet<>();
+  private SubscriptionInfoDto subscription;
   private String jwt;
 }

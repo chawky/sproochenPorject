@@ -7,6 +7,7 @@ import com.nailic.sproochencoach.model.ProcessedStripeEvent;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.ProcessedStripeEventRepo;
+import com.nailic.sproochencoach.repository.SubscriptionPlanRepo;
 import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
@@ -35,13 +36,17 @@ import java.time.ZoneId;
 public class StripePaymentService {
     private static final Logger log = LoggerFactory.getLogger(StripePaymentService.class);
     private static final String CHECKOUT_SESSION_COMPLETED = "checkout.session.completed";
-
+    private static final String CUSTOMER_SUBSCRIPTION_UPDATED =
+            "customer.subscription.updated";
+    private static final String CUSTOMER_SUBSCRIPTION_DELETED =
+            "customer.subscription.deleted";
     private final StripeClient stripeClient;
     private final LoggedInUser loggedInUser;
     private final AppUserRepo appUserRepo;
     private final ProcessedStripeEventRepo processedStripeEventRepo;
     private final TransactionTemplate transactionTemplate;
-
+    private final SubscriptionPlanRepo subscriptionPlanRepo;
+    private final SubscriptionAccessService subscriptionAccessService;
     @Value("${stripe.price-id}")
     private String stripePriceId;
     @Value("${stripe.success-url}")
@@ -53,8 +58,13 @@ public class StripePaymentService {
 
     public StripeSessionURLDto createStripeCheckoutSession() {
         AppUser user = loggedInUser.get();
+        boolean userAlreadyHasAccess = appUserRepo.findSubscriptionPlanByUserId(user.getId())
+                .map(subscriptionPlan -> subscriptionAccessService.hasSubscriptionAccess(
+                        subscriptionPlan.getSubscriptionStatus()
+                ))
+                .orElse(false);
 
-        if (appUserRepo.hasSubscriptionPlan(user.getId())) {
+        if (userAlreadyHasAccess) {
             throw new StripePaymentException(HttpStatus.CONFLICT.value(), "user already subscribed");
         }
 
@@ -116,14 +126,127 @@ public class StripePaymentService {
             log.debug("Stripe event already processed. eventId={}", event.getId());
         }
     }
+    public void cancelSubscription() {
+        SubscriptionPlan subscriptionPlan = getLoggedInUserSubscriptionPlan();
+        String stripeSubscriptionId = subscriptionPlan.getStripeSubscriptionId();
 
-    private void processStripeEvent(Event event) {
-        String eventType = event.getType();
+        try {
+            stripeClient.v1()
+                    .subscriptions()
+                    .cancel(stripeSubscriptionId);
+        } catch (StripeException exception) {
+            throw new StripePaymentException(
+                    HttpStatus.BAD_GATEWAY.value(),
+                    "Unable to cancel subscription"
+            );
+        }
+    }
+    public void updateSubscription() {
+        SubscriptionPlan subscriptionPlan = getLoggedInUserSubscriptionPlan();
+        String stripeSubscriptionId = subscriptionPlan.getStripeSubscriptionId();
 
-        if (!CHECKOUT_SESSION_COMPLETED.equals(eventType)) {
-            return;
+        try {
+            stripeClient.v1()
+                    .subscriptions()
+                    .update(stripeSubscriptionId);
+        } catch (StripeException exception) {
+            throw new StripePaymentException(
+                    HttpStatus.BAD_GATEWAY.value(),
+                    "Unable to update subscription"
+            );
+        }
+    }
+
+    private SubscriptionPlan getLoggedInUserSubscriptionPlan() {
+        return appUserRepo.findSubscriptionPlanByUserId(loggedInUser.getId())
+                .orElseThrow(() -> new StripePaymentException(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "User has no subscription"
+                ));
+    }
+
+    public void processStripeEvent(Event event) {
+        switch (event.getType()) {
+            case CHECKOUT_SESSION_COMPLETED -> handleCompletedEventSubscription(event);
+
+            case CUSTOMER_SUBSCRIPTION_UPDATED -> handleUpdatedEventSubscription(event);
+
+            case CUSTOMER_SUBSCRIPTION_DELETED -> handleDeletedEventSubscription(event);
+
+            default -> log.debug("Ignoring unsupported Stripe event. eventType={}", event.getType());
+        }
+    }
+
+    private void handleDeletedEventSubscription(Event event) {
+        StripeObject dataObject = event
+                .getDataObjectDeserializer()
+                .getObject()
+                .orElse(null);
+
+        if (!(dataObject instanceof Subscription stripeSubscription)) {
+            throw new StripePaymentException(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "Stripe webhook payload could not be processed"
+            );
         }
 
+        SubscriptionPlan localSub = subscriptionPlanRepo
+                .findByStripeSubscriptionId(stripeSubscription.getId())
+                .orElseThrow(() -> new StripePaymentException(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Local subscription not found"
+                ));
+
+        localSub.setSubscriptionStatus(stripeSubscription.getStatus());
+
+        subscriptionPlanRepo.save(localSub);
+    }
+
+    private void handleUpdatedEventSubscription(Event event) {
+        StripeObject dataObject = event
+                .getDataObjectDeserializer()
+                .getObject()
+                .orElse(null);
+
+        if (!(dataObject instanceof Subscription stripeSubscription)) {
+            log.error(
+                    "Stripe subscription event could not be deserialized. eventType={}, eventApiVersion={}",
+                    event.getType(),
+                    event.getApiVersion()
+            );
+
+            throw new StripePaymentException(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "Stripe webhook payload could not be processed"
+            );
+        }
+
+        SubscriptionPlan localSub = subscriptionPlanRepo
+                .findByStripeSubscriptionId(stripeSubscription.getId())
+                .orElseThrow(() -> new StripePaymentException(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Local subscription not found"
+                ));
+
+        localSub.setSubscriptionStatus(stripeSubscription.getStatus());
+
+        Long currentPeriodEnd = stripeSubscription
+                .getItems()
+                .getData()
+                .get(0)
+                .getCurrentPeriodEnd();
+
+        localSub.setCurrentPeriodEnd(
+                Instant.ofEpochSecond(currentPeriodEnd)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+        );
+
+        subscriptionPlanRepo.save(localSub);
+    }
+
+    private void handleCompletedEventSubscription(Event event) {
+        String eventType = event.getType();
         StripeObject dataObject = event
                 .getDataObjectDeserializer()
                 .getObject()

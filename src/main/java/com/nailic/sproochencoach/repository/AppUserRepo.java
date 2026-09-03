@@ -1,6 +1,7 @@
 package com.nailic.sproochencoach.repository;
 
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.model.SubscriptionPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,12 +24,12 @@ public interface AppUserRepo extends JpaRepository<AppUser, Integer> {
     boolean existsByEmail(String email);
 
     @Query("""
-            select case when count(appUser) > 0 then true else false end
+            select subscriptionPlan
             from AppUser appUser
+            join appUser.subscriptionPlan subscriptionPlan
             where appUser.id = :id
-              and appUser.subscriptionPlan is not null
             """)
-    boolean hasSubscriptionPlan(@Param("id") Integer id);
+    Optional<SubscriptionPlan> findSubscriptionPlanByUserId(@Param("id") Integer id);
 
     List<AppUser> findAllByEmail(String email);
 }

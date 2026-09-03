@@ -2,13 +2,15 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.dto.RequestUserDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
+import com.nailic.sproochencoach.dto.SubscriptionInfoDto;
+import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.model.SubscriptionPlan;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.RoleRepo;
 import com.nailic.sproochencoach.exceptions.UserAlreadyExistsException;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,8 +29,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AppUserService {
     private static final Logger log = LoggerFactory.getLogger(AppUserService.class);
+    private static final String DEFAULT_REGISTRATION_ROLE = "USER";
 
-    private final ModelMapper mapper;
     private final AppUserRepo appUserRepo;
     private final RoleRepo roleRepo;
     private final PasswordEncoder passwordEncoder;
@@ -36,10 +38,11 @@ public class AppUserService {
     private final EmailAndOtpService emailAndOtpService;
     private final AuthenticationManager authenticationManager;
     private final UserLoginDayService userLoginDayService;
+    private final SubscriptionAccessService subscriptionAccessService;
 
     public List<ResponseUserDto> findAll() {
         List<ResponseUserDto> users = appUserRepo.findAll().stream()
-                .map(s -> mapper.map(s, ResponseUserDto.class))
+                .map(this::toResponseUserDto)
                 .collect(Collectors.toList());
 
         return users;
@@ -58,12 +61,16 @@ public class AppUserService {
 
         AppUser user = new AppUser();
         mapUserFields(request, user);
-        user.setRoles(Set.of(roleRepo.findByName("ADMIN")));
+        AppRole defaultRole = roleRepo.findByName(DEFAULT_REGISTRATION_ROLE);
+        if (defaultRole == null) {
+            throw new IllegalStateException("Default registration role USER is not configured");
+        }
+        user.setRoles(Set.of(defaultRole));
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         AppUser savedUser = appUserRepo.save(user);
 
-        return mapper.map(savedUser, ResponseUserDto.class);
+        return toResponseUserDto(savedUser);
     }
 
     public ResponseUserDto updateUser(Integer id, RequestUserDto request) {
@@ -88,13 +95,13 @@ public class AppUserService {
 
         AppUser savedUser = appUserRepo.save(user);
 
-        return mapper.map(savedUser, ResponseUserDto.class);
+        return toResponseUserDto(savedUser);
     }
 
     public ResponseUserDto findById(int id) {
         AppUser user = appUserRepo.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        ResponseUserDto responseUserDto = mapper.map(user, ResponseUserDto.class);
+        ResponseUserDto responseUserDto = toResponseUserDto(user);
         return responseUserDto;
     }
 
@@ -104,11 +111,49 @@ public class AppUserService {
         AppUser user = (AppUser) authentication.getPrincipal();
         userLoginDayService.recordLogin(user);
 
-        ResponseUserDto userDto = mapper.map(user,
-                ResponseUserDto.class);
+        ResponseUserDto userDto = toResponseUserDto(user);
         userDto.setJwt(jwtService.generateToken(user));
 
         return userDto;
+    }
+
+    private ResponseUserDto toResponseUserDto(AppUser user) {
+        ResponseUserDto response = new ResponseUserDto();
+        response.setId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setStreet(user.getStreet());
+        response.setStreetNumber(user.getStreetNumber());
+        response.setPostalCode(user.getPostalCode());
+        response.setCity(user.getCity());
+        response.setAddressInfo(user.getAddressInfo());
+        response.setRoles(toRoleNames(user));
+        response.setSubscription(toSubscriptionInfoDto(user.getSubscriptionPlan()));
+        return response;
+    }
+
+    private Set<String> toRoleNames(AppUser user) {
+        return user.getRoles().stream()
+                .filter(role -> role != null && role.getName() != null)
+                .map(AppRole::getName)
+                .collect(Collectors.toSet());
+    }
+
+    private SubscriptionInfoDto toSubscriptionInfoDto(SubscriptionPlan subscriptionPlan) {
+        if (subscriptionPlan == null) {
+            return new SubscriptionInfoDto(false, null, null, null);
+        }
+
+        String subscriptionStatus = subscriptionPlan.getSubscriptionStatus();
+
+        return new SubscriptionInfoDto(
+                subscriptionAccessService.hasSubscriptionAccess(subscriptionStatus),
+                subscriptionStatus,
+                subscriptionPlan.getStartedAt(),
+                subscriptionPlan.getCurrentPeriodEnd()
+        );
     }
 
     private void mapUserFields(RequestUserDto request, AppUser user) {
