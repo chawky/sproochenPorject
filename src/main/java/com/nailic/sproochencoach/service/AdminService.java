@@ -11,6 +11,7 @@ import com.nailic.sproochencoach.dto.AdminExerciseTypeConfigRequest;
 import com.nailic.sproochencoach.dto.AdminUserDetailDto;
 import com.nailic.sproochencoach.dto.AdminUserProgressDto;
 import com.nailic.sproochencoach.dto.AdminUserStatusUpdateRequest;
+import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.dto.AdminLevelConfigRequest;
 import com.nailic.sproochencoach.dto.AdminTopicConfigRequest;
 import com.nailic.sproochencoach.dto.PageResponseDto;
@@ -46,6 +47,7 @@ public class AdminService {
     private final LoggedInUser loggedInUser;
     private final SubscriptionAccessService subscriptionAccessService;
     private final AiUsageService aiUsageService;
+    private final AiQuotaService aiQuotaService;
     private final AdminAuditService adminAuditService;
     private final ExerciseConfigService exerciseConfigService;
 
@@ -85,8 +87,9 @@ public class AdminService {
         ResponseUserDto user = appUserService.findById(id);
         ProgressDashboardDto progress = userProgressService.getUserProgress(id);
         AdminAiUsageSummaryDto aiUsage = aiUsageService.getUserAiUsageSummary(id);
+        AiQuotaStatusDto aiQuota = aiQuotaService.getUserQuotaStatus(id);
 
-        return new AdminUserDetailDto(user, progress, aiUsage);
+        return new AdminUserDetailDto(user, progress, aiUsage, aiQuota);
     }
 
     @Transactional
@@ -155,6 +158,12 @@ public class AdminService {
         appUserService.findById(userId);
 
         return aiUsageService.getUserAiUsageSummary(userId);
+    }
+
+    public AiQuotaStatusDto getUserAiQuota(Integer userId) {
+        appUserService.findById(userId);
+
+        return aiQuotaService.getUserQuotaStatus(userId);
     }
 
     public PageResponseDto<AdminAiUsageDto> getUserAiUsage(

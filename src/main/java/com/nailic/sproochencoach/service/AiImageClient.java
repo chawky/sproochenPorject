@@ -43,20 +43,24 @@ public class AiImageClient {
     private final RestClient kimiImageRestClient;
     private final ObjectMapper objectMapper;
     private final AiUsageService aiUsageService;
+    private final AiQuotaService aiQuotaService;
 
     public AiImageClient(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("kimiImageGenerationRestClient") RestClient kimiImageRestClient,
             ObjectMapper objectMapper,
-            AiUsageService aiUsageService
+            AiUsageService aiUsageService,
+            AiQuotaService aiQuotaService
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.kimiImageRestClient = kimiImageRestClient;
         this.objectMapper = objectMapper;
         this.aiUsageService = aiUsageService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public byte[] generateImage(String userPrompt) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.IMAGE);
         return switch (provider.toLowerCase(Locale.ROOT)) {
             case "openrouter" -> generateImageWithOpenRouter(userPrompt);
             case "kimi" -> generateImageWithKimi(userPrompt);

@@ -68,6 +68,19 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(AiQuotaExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiQuotaExceeded(AiQuotaExceededException exception) {
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException exception) {
         String message = exception.getBindingResult()

@@ -173,6 +173,239 @@ Recommendation:
 - Update the frontend practice config service to call `/api/exercise-config`, not `/api/admin/exercise-config`.
 - Keep provider/model values in deployment configuration, not the admin dashboard.
 
+### 7. AI Quota and Cost-Control Plan
+
+Status: implemented for backend MVP quota enforcement.
+
+Purpose:
+
+- Prevent free/basic users from generating unlimited provider costs.
+- Keep Stripe subscription revenue connected to AI usage limits.
+- Reuse existing `AiUsage` records instead of introducing a separate usage ledger too early.
+- Keep quota rules in backend configuration first; avoid admin-editable quotas until the product pricing is stable.
+- Count successful provider requests in the first version; do not count tokens, exact USD, or frontend button clicks as quota units.
+- Treat MVP quota enforcement as best-effort under concurrent requests; a small temporary overage is acceptable before adding atomic reservations.
+
+#### Phase 1: Define Product Quotas
+
+Status: implemented.
+
+Goal:
+
+- Decide what each plan is allowed to consume before writing enforcement code.
+
+Implemented:
+
+- DONE: `UserPlanTier` now defines `BASIC` and `PREMIUM`.
+- DONE: `UserPlanTierResolver` now centralizes the current user's tier decision.
+- DONE: `AiModelRouter` now uses `UserPlanTierResolver` instead of duplicating subscription logic.
+- DONE: Premium access is still based on subscription statuses handled by `SubscriptionAccessService`: `active` and `trialing`.
+- DONE: Quota windows are defined:
+  - `BASIC`: daily limits.
+  - `PREMIUM`: monthly limits.
+- DONE: Quota categories are defined:
+  - Chat exercise generation.
+  - Speaking/listening TTS audio generation.
+  - STT recording transcription.
+  - Image generation.
+- DONE: Consumed quota units are defined:
+  - `CHAT`: one successful LLM provider call.
+  - `TTS`: one successful ElevenLabs generation.
+  - `STT`: one successful transcription.
+  - `IMAGE`: one successful image generation.
+- DONE: Conservative launch defaults are defined below.
+- DONE: Launch quota numbers are adjustable assumptions, not permanent product promises.
+
+Follow-up:
+
+- DONE: Backend quota configuration, usage counting, and enforcement are implemented in Phases 2-5.
+
+Recommended MVP defaults:
+
+- `BASIC`: 20 chat generations per day.
+- `BASIC`: 5 audio generations per day.
+- `BASIC`: 5 STT evaluations per day.
+- `BASIC`: 0 or 2 image generations per day.
+- `PREMIUM`: 300 chat generations per month.
+- `PREMIUM`: 75 audio generations per month.
+- `PREMIUM`: 75 STT evaluations per month.
+- `PREMIUM`: 10 image generations per month.
+
+Review after launch:
+
+- Increase limits only after real `AiUsage` cost data confirms the subscription price has enough margin.
+- Prefer raising limits later over launching with generous limits and reducing them after users subscribe.
+
+#### Phase 2: Add Quota Configuration
+
+Status: implemented.
+
+Goal:
+
+- Make limits configurable per environment without changing code.
+
+Implemented:
+
+- DONE: Added properties under `ai.quota.basic.*` and `ai.quota.premium.*`.
+- DONE: Added one property per feature category and quota window.
+- DONE: Added `AiQuotaProperties` for typed quota configuration.
+- DONE: Kept quota values in `application.properties` for local defaults.
+- DONE: Added environment-variable overrides for production quota values.
+- DONE: Kept provider/model selection separate from quota limits.
+- DONE: Tier resolution remains shared through `UserPlanTierResolver`.
+
+Still To Do:
+
+- Avoid storing production quota overrides in Git; set them in the deployment environment.
+
+Example properties:
+
+- `ai.quota.basic.chat.daily-limit=20`
+- `ai.quota.basic.tts.daily-limit=5`
+- `ai.quota.basic.stt.daily-limit=5`
+- `ai.quota.basic.image.daily-limit=0`
+- `ai.quota.premium.chat.monthly-limit=300`
+- `ai.quota.premium.tts.monthly-limit=75`
+- `ai.quota.premium.stt.monthly-limit=75`
+- `ai.quota.premium.image.monthly-limit=10`
+
+#### Phase 3: Add Usage Counting Queries
+
+Status: implemented.
+
+Goal:
+
+- Count current-period usage efficiently from existing `AiUsage` rows.
+
+Implemented:
+
+- DONE: Added JPA Specification-based counting by `userId`, quota category, and date range.
+- DONE: Added canonical quota category enum values: `CHAT`, `TTS`, `STT`, and `IMAGE`.
+- DONE: Mapped current usage records into categories:
+  - Chat: `recordChatUsage(...)` from `AiChatClient`.
+  - TTS: ElevenLabs usage from `AudioExerciseGenerationService`.
+  - STT: Groq Whisper usage from `SpeakingService`.
+  - Image: image usage from `AiImageClient`.
+- DONE: Added `AiUsageService.countUserQuotaUsage(...)` for quota-window counting.
+- DONE: Kept cost estimation separate from quota counting.
+- DONE: Chat usage now records successful provider calls even when token metadata is missing.
+
+Still To Do:
+
+- Add optimized aggregate queries later only if `AiUsage` grows large enough to make Specification counts slow.
+
+#### Phase 4: Implement Quota Enforcement Service
+
+Status: implemented.
+
+Goal:
+
+- Centralize quota checks so feature services do not duplicate business rules.
+
+Implemented:
+
+- DONE: Created `AiQuotaService`.
+- DONE: Reused `AiQuotaCategory` enum values: `CHAT`, `TTS`, `STT`, `IMAGE`.
+- DONE: Resolved the current user's tier through `UserPlanTierResolver`.
+- DONE: Shared tier resolution now prevents `AiModelRouter` and `AiQuotaService` from disagreeing.
+- DONE: Resolved the active quota window for the tier and category.
+- DONE: Counted usage for the current user/category/window through `AiUsageService.countUserQuotaUsage(...)`.
+- DONE: Added dedicated `AiQuotaExceededException`.
+- DONE: Returned clear API error messages such as `Daily AI limit reached for chat` and `Monthly premium AI limit reached for chat`.
+- DONE: Added `AiQuotaExceededException` to `GlobalExceptionHandler` using HTTP `429 Too Many Requests`.
+
+Still To Do:
+
+- Add quota reservations only if concurrent overage becomes a real abuse/cost problem.
+
+#### Phase 5: Add Quota Checks Before Provider Calls
+
+Status: implemented.
+
+Goal:
+
+- Block expensive calls before reaching OpenRouter, Kimi, Groq, or ElevenLabs.
+
+Implemented:
+
+- DONE: Checked `CHAT` quota before `AiChatClient.complete(...)` sends a chat request.
+- DONE: Checked `TTS` quota before ElevenLabs TTS generation.
+- DONE: Checked `STT` quota before Groq transcription.
+- DONE: Checked `IMAGE` quota before image generation.
+- DONE: Kept usage recording after successful provider calls.
+- DONE: Kept failed provider calls out of quota consumption for the MVP.
+- DONE: Logged quota rejections with user ID, category, tier, current count, and limit.
+- DONE: Documented that the MVP check-then-call-then-record flow can allow minor overage under simultaneous requests.
+- DONE: Deferred Redis, database locks, and quota reservations until abuse or real cost data justifies the complexity.
+
+#### Phase 6: Expose Quota Status to the Frontend
+
+Status: implemented.
+
+Goal:
+
+- Let the UI show remaining usage before users hit errors.
+
+Implemented:
+
+- DONE: Added `GET /api/users/me/ai-quota`.
+- DONE: Returned current tier, window start/end, limit, used, and remaining per category.
+- DONE: Kept quota status out of `/api/users/me` so the existing user response stays small.
+
+Frontend Still To Do:
+
+- Disable expensive actions when remaining quota is zero.
+- Show upgrade messaging for BASIC users when premium would increase the limit.
+
+#### Phase 7: Admin Observability
+
+Status: implemented for first admin visibility.
+
+Goal:
+
+- Let the admin see whether usage limits protect costs.
+
+Implemented:
+
+- DONE: Added quota usage to the existing admin user detail DTO.
+- DONE: Added direct admin quota endpoint `GET /api/admin/users/{id}/ai-quota`.
+- DONE: Kept manual quota overrides out of scope for the first implementation.
+
+Still To Do:
+
+- Add filters by category and date range only if current admin AI usage views are not enough.
+- Add a simple cost-risk indicator later if admins need dashboard warnings.
+
+#### Phase 8: Tests and Edge Cases
+
+Status: implemented for focused backend quota coverage.
+
+Goal:
+
+- Prove quota behavior before public release.
+
+Implemented:
+
+- DONE: Unit tested quota-window calculation for daily and monthly limits.
+- DONE: Unit tested BASIC vs PREMIUM tier resolution.
+- DONE: Unit tested quota exceeded behavior.
+- DONE: Added endpoint-level `429` test for quota-exceeded AI endpoint behavior.
+- DONE: Verified quota enforcement has no admin role exemption path.
+- DONE: Verified quota counting does not break when chat provider token usage is missing.
+- DONE: Used an injectable server-side `Clock` for consistent quota-window behavior.
+- DONE: Documented that concurrent requests may exceed quota slightly as expected MVP behavior.
+
+Still To Do:
+
+- Add full Spring Security integration coverage after test configuration no longer depends on real provider secrets.
+
+Implementation result:
+
+- DONE: Implemented `CHAT`, `TTS`, `STT`, and `IMAGE` backend quota checks.
+- DONE: Exposed frontend quota status after backend enforcement was in place.
+- DONE: Kept the first version simple: count requests, not tokens or exact USD.
+- DONE: Kept atomic quota reservations out of scope for the MVP.
+
 ## Recommended Implementation Order
 
 ### Phase 1: Finish Admin Observability

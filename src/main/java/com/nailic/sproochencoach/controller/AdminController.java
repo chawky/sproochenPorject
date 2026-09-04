@@ -13,6 +13,7 @@ import com.nailic.sproochencoach.dto.AdminTopicOptionDto;
 import com.nailic.sproochencoach.dto.AdminUserDetailDto;
 import com.nailic.sproochencoach.dto.AdminUserProgressDto;
 import com.nailic.sproochencoach.dto.AdminUserStatusUpdateRequest;
+import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.dto.ApiResponse;
 import com.nailic.sproochencoach.dto.PageResponseDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
@@ -120,6 +121,21 @@ public class AdminController {
                         true,
                         "Admin user AI usage summary retrieved successfully",
                         usage
+                )
+        );
+    }
+
+    @GetMapping("/users/{id}/ai-quota")
+    public ResponseEntity<ApiResponse<AiQuotaStatusDto>> getUserAiQuota(
+            @PathVariable Integer id
+    ) {
+        AiQuotaStatusDto quota = adminService.getUserAiQuota(id);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Admin user AI quota retrieved successfully",
+                        quota
                 )
         );
     }

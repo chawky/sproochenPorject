@@ -28,19 +28,22 @@ public class AudioExerciseGenerationService {
     private final ObjectMapper objectMapper;
     private final AiUsageService aiUsageService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
 
     public AudioExerciseGenerationService(
             AiChatClient aiChatClient,
             @Qualifier("ttsRestClient") RestClient ttsRestClient,
             ObjectMapper objectMapper,
             AiUsageService aiUsageService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
     ) {
         this.aiChatClient = aiChatClient;
         this.ttsRestClient = ttsRestClient;
         this.objectMapper = objectMapper;
         this.aiUsageService = aiUsageService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public <T extends AudioExerciseDto> T generateAudioExercise(
@@ -49,6 +52,7 @@ public class AudioExerciseGenerationService {
             Class<T> responseType,
             String exerciseName
     ) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.TTS);
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         String prompt = promptTemplate.formatted(
                 request.getLevel(),

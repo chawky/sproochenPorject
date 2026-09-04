@@ -5,13 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Setter
-public class AdminUserDetailDto {
-    private ResponseUserDto user;
-    private ProgressDashboardDto progress;
-    private AdminAiUsageSummaryDto aiUsage;
-    private AiQuotaStatusDto aiQuota;
+public class AiQuotaStatusDto {
+    private String tier;
+    private List<AiQuotaCategoryStatusDto> categories = new ArrayList<>();
 }

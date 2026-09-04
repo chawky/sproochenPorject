@@ -47,10 +47,6 @@ public class AiUsageService {
             Integer outputTokens,
             Integer totalTokens
     ) {
-        if (inputTokens == null && outputTokens == null && totalTokens == null) {
-            return;
-        }
-
         recordUsage(
                 provider,
                 model,
@@ -61,6 +57,15 @@ public class AiUsageService {
                 TOKEN_UNIT,
                 totalTokens == null ? null : totalTokens.longValue()
         );
+    }
+
+    public long countUserQuotaUsage(
+            Integer userId,
+            AiQuotaCategory category,
+            LocalDateTime fromInclusive,
+            LocalDateTime toExclusive
+    ) {
+        return aiUsageRepo.count(quotaUsageFilters(userId, category, fromInclusive, toExclusive));
     }
 
     public void recordImageUsage(String provider, String model, String requestName) {
@@ -280,6 +285,42 @@ public class AiUsageService {
             }
 
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private Specification<AiUsage> quotaUsageFilters(
+            Integer userId,
+            AiQuotaCategory category,
+            LocalDateTime fromInclusive,
+            LocalDateTime toExclusive
+    ) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
+            predicates.add(quotaCategoryPredicate(category, root, criteriaBuilder));
+
+            if (fromInclusive != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), fromInclusive));
+            }
+
+            if (toExclusive != null) {
+                predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), toExclusive));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private Predicate quotaCategoryPredicate(
+            AiQuotaCategory category,
+            jakarta.persistence.criteria.Root<AiUsage> root,
+            jakarta.persistence.criteria.CriteriaBuilder criteriaBuilder
+    ) {
+        return switch (category) {
+            case CHAT -> criteriaBuilder.lower(root.get("provider")).in(List.of("openrouter", "kimi"));
+            case TTS -> criteriaBuilder.equal(criteriaBuilder.lower(root.get("provider")), "elevenlabs");
+            case STT -> criteriaBuilder.equal(criteriaBuilder.lower(root.get("provider")), "groq");
+            case IMAGE -> criteriaBuilder.lower(root.get("provider")).in(List.of("openrouter-image", "kimi-image"));
         };
     }
 }

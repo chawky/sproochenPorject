@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.controller;
 
 import com.nailic.sproochencoach.dto.*;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
@@ -23,6 +24,7 @@ public class AppUserController {
     private final AppUserService appUserService;
     private final EmailAndOtpService emailAndOtpService;
     private final LuxembourgLocationService luxembourgLocationService;
+    private final AiQuotaService aiQuotaService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -133,6 +135,19 @@ public class AppUserController {
                         true,
                         "Current user retrieved successfully",
                         responseUser
+                )
+        );
+    }
+
+    @GetMapping("/me/ai-quota")
+    public ResponseEntity<ApiResponse<AiQuotaStatusDto>> myAiQuota() {
+        AiQuotaStatusDto quotaStatus = aiQuotaService.getCurrentUserQuotaStatus();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "AI quota retrieved successfully",
+                        quotaStatus
                 )
         );
     }

@@ -44,6 +44,7 @@ public class SpeakingService {
     private final UserProgressService userProgressService;
     private final AiUsageService aiUsageService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
 
     public SpeakingService(
             AiChatClient aiChatClient,
@@ -53,7 +54,8 @@ public class SpeakingService {
             AudioExerciseGenerationService audioExerciseGenerationService,
             UserProgressService userProgressService,
             AiUsageService aiUsageService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
     ) {
         this.aiChatClient = aiChatClient;
         this.groqRestClient = groqRestClient;
@@ -63,6 +65,7 @@ public class SpeakingService {
         this.userProgressService = userProgressService;
         this.aiUsageService = aiUsageService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public SpeakingDto generateSpeakingPrompt(ExerciseRequestDto exerciseRequestDto) {
@@ -122,6 +125,7 @@ public class SpeakingService {
     }
 
     public String transcribeAudio(MultipartFile audio, Long audioDurationSeconds) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.STT);
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
         body.add("file", audio.getResource());

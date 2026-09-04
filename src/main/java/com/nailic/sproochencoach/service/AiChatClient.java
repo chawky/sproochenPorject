@@ -51,22 +51,26 @@ public class AiChatClient {
     private final ObjectMapper objectMapper;
     private final AiUsageService aiUsageService;
     private final AiModelRouter aiModelRouter;
+    private final AiQuotaService aiQuotaService;
 
     public AiChatClient(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("anthropicRestClient") RestClient anthropicRestClient,
             ObjectMapper objectMapper,
             AiUsageService aiUsageService,
-            AiModelRouter aiModelRouter
+            AiModelRouter aiModelRouter,
+            AiQuotaService aiQuotaService
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.anthropicRestClient = anthropicRestClient;
         this.objectMapper = objectMapper;
         this.aiUsageService = aiUsageService;
         this.aiModelRouter = aiModelRouter;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public String complete(String userPrompt, String requestName) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.CHAT);
         AiModelRoute route = aiModelRouter.currentUserRoute();
 
         return switch (route.provider().toLowerCase(Locale.ROOT)) {
