@@ -157,12 +157,16 @@ Implemented:
 - `GET /api/users`, `GET /api/users/{id}`, and `PUT /api/users/{id}` are now admin-only.
 - `/api/users/me` remains the authenticated current-user endpoint for normal users.
 - Forbidden method-security failures now return the unified `ApiResponse` shape with HTTP `403`.
+- Learner exercise screens now have read-only `GET /api/exercise-config`.
+- `GET /api/exercise-config` returns only enabled levels, topics, and exercise types.
+- Admin exercise config remains under `/api/admin/exercise-config` for protected editing.
 
 Recommendation:
 
 - Keep general user administration under admin-only access.
 - Add a dedicated `PUT /api/users/me` later if normal users need profile editing.
 - Do not reuse ID-based user update routes for self-service profile editing unless ownership checks are explicit.
+- Update the frontend practice config service to call `/api/exercise-config`, not `/api/admin/exercise-config`.
 
 ## Recommended Implementation Order
 

@@ -7,7 +7,11 @@ import com.nailic.sproochencoach.dto.AdminLevelConfigRequest;
 import com.nailic.sproochencoach.dto.AdminLevelOptionDto;
 import com.nailic.sproochencoach.dto.AdminTopicConfigRequest;
 import com.nailic.sproochencoach.dto.AdminTopicOptionDto;
+import com.nailic.sproochencoach.dto.ExerciseConfigDto;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
+import com.nailic.sproochencoach.dto.ExerciseTypeOptionDto;
+import com.nailic.sproochencoach.dto.LevelOptionDto;
+import com.nailic.sproochencoach.dto.TopicOptionDto;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.model.ExerciseLevelConfig;
 import com.nailic.sproochencoach.model.ExerciseTopicConfig;
@@ -21,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +44,33 @@ public class ExerciseConfigService {
         config.setLevels(levelRepo.findAllByOrderByCodeAsc().stream().map(this::toLevelDto).toList());
         config.setTopics(topicRepo.findAllByOrderByLevelCodeAscCodeAsc().stream().map(this::toTopicDto).toList());
         config.setExerciseTypes(typeRepo.findAllByOrderByCodeAsc().stream().map(this::toTypeDto).toList());
+        return config;
+    }
+
+    @Transactional(readOnly = true)
+    public ExerciseConfigDto getEnabledConfig() {
+        ExerciseConfigDto config = new ExerciseConfigDto();
+        Set<String> enabledLevelCodes = levelRepo.findAllByOrderByCodeAsc()
+                .stream()
+                .filter(ExerciseLevelConfig::isEnabled)
+                .map(ExerciseLevelConfig::getCode)
+                .collect(Collectors.toSet());
+
+        config.setLevels(levelRepo.findAllByOrderByCodeAsc()
+                .stream()
+                .filter(ExerciseLevelConfig::isEnabled)
+                .map(this::toLearnerLevelDto)
+                .toList());
+        config.setTopics(topicRepo.findAllByOrderByLevelCodeAscCodeAsc()
+                .stream()
+                .filter(topic -> topic.isEnabled() && enabledLevelCodes.contains(topic.getLevelCode()))
+                .map(this::toLearnerTopicDto)
+                .toList());
+        config.setExerciseTypes(typeRepo.findAllByOrderByCodeAsc()
+                .stream()
+                .filter(ExerciseTypeConfig::isEnabled)
+                .map(this::toLearnerTypeDto)
+                .toList());
         return config;
     }
 
@@ -265,6 +298,18 @@ public class ExerciseConfigService {
 
     private AdminExerciseTypeOptionDto toTypeDto(ExerciseTypeConfig type) {
         return new AdminExerciseTypeOptionDto(type.getCode(), type.getLabel(), type.isEnabled());
+    }
+
+    private LevelOptionDto toLearnerLevelDto(ExerciseLevelConfig level) {
+        return new LevelOptionDto(level.getCode(), level.getLabel(), level.getDescription());
+    }
+
+    private TopicOptionDto toLearnerTopicDto(ExerciseTopicConfig topic) {
+        return new TopicOptionDto(topic.getCode(), topic.getLabel(), topic.getLevelCode());
+    }
+
+    private ExerciseTypeOptionDto toLearnerTypeDto(ExerciseTypeConfig type) {
+        return new ExerciseTypeOptionDto(type.getCode(), type.getLabel());
     }
 
     private String normalizeCode(String code) {
