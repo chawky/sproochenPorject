@@ -185,6 +185,7 @@ Purpose:
 - Keep quota rules in backend configuration first; avoid admin-editable quotas until the product pricing is stable.
 - Count successful provider requests in the first version; do not count tokens, exact USD, or frontend button clicks as quota units.
 - Treat MVP quota enforcement as best-effort under concurrent requests; a small temporary overage is acceptable before adding atomic reservations.
+- Fail closed when successful provider usage cannot be recorded, because `AiUsage` is now quota accounting, not only observability.
 
 #### Phase 1: Define Product Quotas
 
@@ -334,6 +335,8 @@ Implemented:
 - DONE: Checked `IMAGE` quota before image generation.
 - DONE: Kept usage recording after successful provider calls.
 - DONE: Kept failed provider calls out of quota consumption for the MVP.
+- DONE: Failed closed when successful provider calls cannot be recorded in `AiUsage`.
+- DONE: Failed closed when usage recording has no authenticated user to attach quota consumption to.
 - DONE: Logged quota rejections with user ID, category, tier, current count, and limit.
 - DONE: Documented that the MVP check-then-call-then-record flow can allow minor overage under simultaneous requests.
 - DONE: Deferred Redis, database locks, and quota reservations until abuse or real cost data justifies the complexity.
@@ -392,6 +395,8 @@ Implemented:
 - DONE: Added endpoint-level `429` test for quota-exceeded AI endpoint behavior.
 - DONE: Verified quota enforcement has no admin role exemption path.
 - DONE: Verified quota counting does not break when chat provider token usage is missing.
+- DONE: Unit tested fail-closed behavior when `AiUsage` persistence fails.
+- DONE: Unit tested fail-closed behavior when no authenticated user is available for usage recording.
 - DONE: Used an injectable server-side `Clock` for consistent quota-window behavior.
 - DONE: Documented that concurrent requests may exceed quota slightly as expected MVP behavior.
 

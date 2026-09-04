@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.model.AiUsage;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.exceptions.AiUsageRecordingException;
 import com.nailic.sproochencoach.repository.AiUsageRepo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,5 +52,30 @@ class AiUsageServiceTest {
         assertThat(usage.getProvider()).isEqualTo("openrouter");
         assertThat(usage.getUsageUnit()).isEqualTo("TOKEN");
         assertThat(usage.getUsageAmount()).isNull();
+    }
+
+    @Test
+    void throwsWhenUsageCannotBeRecorded() {
+        AppUser user = new AppUser();
+        user.setId(42);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())
+        );
+        when(aiUsageRepo.save(any(AiUsage.class))).thenThrow(new RuntimeException("database unavailable"));
+
+        AiUsageService service = new AiUsageService(aiUsageRepo, aiUsageCostService);
+
+        assertThatThrownBy(() -> service.recordImageUsage("openrouter-image", "bytedance-seed/seedream-4.5", "image generation"))
+                .isInstanceOf(AiUsageRecordingException.class)
+                .hasMessage("AI usage could not be recorded");
+    }
+
+    @Test
+    void throwsWhenNoAuthenticatedUserIsAvailable() {
+        AiUsageService service = new AiUsageService(aiUsageRepo, aiUsageCostService);
+
+        assertThatThrownBy(() -> service.recordImageUsage("openrouter-image", "bytedance-seed/seedream-4.5", "image generation"))
+                .isInstanceOf(AiUsageRecordingException.class)
+                .hasMessage("AI usage could not be recorded");
     }
 }

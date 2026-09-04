@@ -81,6 +81,21 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(AiUsageRecordingException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiUsageRecordingException(AiUsageRecordingException exception) {
+        log.error("Handling AiUsageRecordingException. message={}", exception.getMessage(), exception);
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                "AI usage could not be recorded. Please try again.",
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException exception) {
         String message = exception.getBindingResult()

@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
 import com.nailic.sproochencoach.dto.PageResponseDto;
+import com.nailic.sproochencoach.exceptions.AiUsageRecordingException;
 import com.nailic.sproochencoach.model.AiUsage;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AiUsageRepo;
@@ -97,8 +98,8 @@ public class AiUsageService {
     ) {
         AppUser user = currentUser();
         if (user == null) {
-            log.debug("Skipping AI usage recording because no authenticated user is available. request={}", requestName);
-            return;
+            log.error("Failed to record AI usage because no authenticated user is available. provider={}, model={}, request={}", provider, model, requestName);
+            throw new AiUsageRecordingException("AI usage could not be recorded", null);
         }
 
         try {
@@ -124,6 +125,7 @@ public class AiUsageService {
             aiUsageRepo.save(usage);
         } catch (RuntimeException exception) {
             log.error("Failed to record AI usage. userId={}, provider={}, model={}, request={}", user.getId(), provider, model, requestName, exception);
+            throw new AiUsageRecordingException("AI usage could not be recorded", exception);
         }
     }
 
