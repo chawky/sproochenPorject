@@ -147,6 +147,23 @@ Recommendation:
 - Add audit snapshots later if config rename history must remain human-readable after labels change.
 - Audit config mutations if admins start editing production data regularly.
 
+### 6. Launch-Critical Application Logic Review
+
+Status: critical issue fixed.
+
+Implemented:
+
+- Public user-management routes were reviewed for launch risk.
+- `GET /api/users`, `GET /api/users/{id}`, and `PUT /api/users/{id}` are now admin-only.
+- `/api/users/me` remains the authenticated current-user endpoint for normal users.
+- Forbidden method-security failures now return the unified `ApiResponse` shape with HTTP `403`.
+
+Recommendation:
+
+- Keep general user administration under admin-only access.
+- Add a dedicated `PUT /api/users/me` later if normal users need profile editing.
+- Do not reuse ID-based user update routes for self-service profile editing unless ownership checks are explicit.
+
 ## Recommended Implementation Order
 
 ### Phase 1: Finish Admin Observability

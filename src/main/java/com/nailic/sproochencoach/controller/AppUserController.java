@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,7 @@ public class AppUserController {
     private final LuxembourgLocationService luxembourgLocationService;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<ResponseUserDto>>> findAll() {
         List<ResponseUserDto> users = appUserService.findAll();
 
@@ -37,6 +39,7 @@ public class AppUserController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ResponseUserDto>> findById(
             @PathVariable Integer id
     ) {
@@ -86,6 +89,7 @@ public class AppUserController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ResponseUserDto>> updateUser(
             @PathVariable Integer id,
             @Valid @RequestBody RequestUserDto request
