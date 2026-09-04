@@ -25,20 +25,11 @@ import java.util.stream.Collectors;
 public class AiChatClient {
     private static final Logger log = LoggerFactory.getLogger(AiChatClient.class);
 
-    @Value("${ai.chat.provider}")
-    private String provider;
-
     @Value("${ai.chat.temperature}")
     private double temperature;
 
-    @Value("${ai.openrouter.model}")
-    private String openRouterModel;
-
     @Value("${ai.openrouter.completion-uri}")
     private String openRouterCompletionUri;
-
-    @Value("${ai.kimi.paid.model}")
-    private String kimiModel;
 
     @Value("${ai.kimi.messages-uri}")
     private String kimiMessagesUri;
@@ -59,35 +50,40 @@ public class AiChatClient {
     private final RestClient anthropicRestClient;
     private final ObjectMapper objectMapper;
     private final AiUsageService aiUsageService;
+    private final AiModelRouter aiModelRouter;
 
     public AiChatClient(
             @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
             @Qualifier("anthropicRestClient") RestClient anthropicRestClient,
             ObjectMapper objectMapper,
-            AiUsageService aiUsageService
+            AiUsageService aiUsageService,
+            AiModelRouter aiModelRouter
     ) {
         this.openRouterRestClient = openRouterRestClient;
         this.anthropicRestClient = anthropicRestClient;
         this.objectMapper = objectMapper;
         this.aiUsageService = aiUsageService;
+        this.aiModelRouter = aiModelRouter;
     }
 
     public String complete(String userPrompt, String requestName) {
-        return switch (provider.toLowerCase(Locale.ROOT)) {
-            case "openrouter" -> completeWithOpenRouter(userPrompt, requestName);
-            case "kimi" -> completeWithKimi(userPrompt, requestName);
+        AiModelRoute route = aiModelRouter.currentUserRoute();
+
+        return switch (route.provider().toLowerCase(Locale.ROOT)) {
+            case "openrouter" -> completeWithOpenRouter(userPrompt, requestName, route.model());
+            case "kimi" -> completeWithKimi(userPrompt, requestName, route.model());
             default -> throw new AiProviderException(
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Unsupported AI provider: " + provider
+                    "Unsupported AI provider: " + route.provider()
             );
         };
     }
 
-    private String completeWithOpenRouter(String userPrompt, String requestName) {
-        log.info("AI request. provider={}, model={}, request={}", "openrouter", openRouterModel, requestName);
+    private String completeWithOpenRouter(String userPrompt, String requestName, String model) {
+        log.info("AI request. provider={}, model={}, request={}", "openrouter", model, requestName);
 
         Map<String, Object> requestBody = Map.of(
-                "model", openRouterModel,
+                "model", model,
                 "temperature", temperature,
                 "messages", List.of(
                         Map.of(
@@ -116,16 +112,16 @@ public class AiChatClient {
         Map<?, ?> responseMap = readResponseMap(responseBody, "OpenRouter", requestName);
         String content = extractOpenRouterText(responseMap, requestName);
         TokenUsage tokenUsage = extractOpenRouterTokenUsage(responseMap);
-        recordTokenUsage("openrouter", openRouterModel, requestName, tokenUsage);
+        recordTokenUsage("openrouter", model, requestName, tokenUsage);
 
         return content;
     }
 
-    private String completeWithKimi(String userPrompt, String requestName) {
-        log.info("AI request. provider={}, model={}, request={}", "kimi", kimiModel, requestName);
+    private String completeWithKimi(String userPrompt, String requestName, String model) {
+        log.info("AI request. provider={}, model={}, request={}", "kimi", model, requestName);
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", kimiModel);
+        requestBody.put("model", model);
         requestBody.put("max_tokens", kimiMaxTokens);
         requestBody.put("temperature", temperature);
         requestBody.put("system", systemContent);
@@ -163,7 +159,7 @@ public class AiChatClient {
         Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi", requestName);
         String content = extractAnthropicText(responseMap, requestName);
         TokenUsage tokenUsage = extractAnthropicTokenUsage(responseMap);
-        recordTokenUsage("kimi", kimiModel, requestName, tokenUsage);
+        recordTokenUsage("kimi", model, requestName, tokenUsage);
 
         return content;
     }

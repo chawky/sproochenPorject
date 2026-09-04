@@ -160,6 +160,10 @@ Implemented:
 - Learner exercise screens now have read-only `GET /api/exercise-config`.
 - `GET /api/exercise-config` returns only enabled levels, topics, and exercise types.
 - Admin exercise config remains under `/api/admin/exercise-config` for protected editing.
+- AI chat provider selection now happens per authenticated request instead of globally.
+- BASIC users route through `ai.chat.basic.provider` / `ai.chat.basic.model`.
+- Premium users route through `ai.chat.premium.provider` / `ai.chat.premium.model`.
+- Image provider selection is separated into `ai.image.provider`.
 
 Recommendation:
 
@@ -167,6 +171,7 @@ Recommendation:
 - Add a dedicated `PUT /api/users/me` later if normal users need profile editing.
 - Do not reuse ID-based user update routes for self-service profile editing unless ownership checks are explicit.
 - Update the frontend practice config service to call `/api/exercise-config`, not `/api/admin/exercise-config`.
+- Keep provider/model values in deployment configuration, not the admin dashboard.
 
 ## Recommended Implementation Order
 

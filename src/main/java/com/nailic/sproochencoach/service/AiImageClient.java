@@ -24,7 +24,7 @@ import java.util.Map;
 public class AiImageClient {
     private static final Logger log = LoggerFactory.getLogger(AiImageClient.class);
 
-    @Value("${ai.chat.provider}")
+    @Value("${ai.image.provider}")
     private String provider;
 
     @Value("${ai.openrouter.image-uri}")
