@@ -1,8 +1,8 @@
 package com.nailic.sproochencoach.controller;
 
 import com.nailic.sproochencoach.dto.ApiResponse;
-import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.VocabularyDto;
+import com.nailic.sproochencoach.dto.VocabularyRequestDto;
 import com.nailic.sproochencoach.service.VocabularyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ public class VocabularyController {
     private final VocabularyService vocabularyService;
     @PostMapping("/vocabulary")
     public ResponseEntity<ApiResponse<VocabularyDto>> generateVocabExercise(
-            @Valid @RequestBody ExerciseRequestDto request
+            @Valid @RequestBody VocabularyRequestDto request
     ) {
         VocabularyDto exercise = vocabularyService.generateVocabExercise(request);
 

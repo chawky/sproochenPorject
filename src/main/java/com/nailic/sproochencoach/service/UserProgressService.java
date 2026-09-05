@@ -5,6 +5,7 @@ import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.ExerciseAttemptDto;
 import com.nailic.sproochencoach.dto.ProgressDashboardDto;
 import com.nailic.sproochencoach.dto.SkillProgressDto;
+import com.nailic.sproochencoach.dto.VocabularyRequestDto;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
@@ -46,13 +47,25 @@ public class UserProgressService {
     public Long recordGeneratedExercise(String exerciseType, ExerciseRequestDto request) {
         AppUser user = loggedInUser.get();
 
+        return recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), request.getType());
+    }
+
+    @Transactional
+    public Long recordGeneratedVocabularyExercise(String exerciseType, VocabularyRequestDto request) {
+        AppUser user = loggedInUser.get();
+
+        return recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), null);
+    }
+
+    private Long recordGeneratedExercise(AppUser user, String exerciseType, String level, String topic, String answerType) {
+
         ExerciseAttempt attempt = new ExerciseAttempt();
         attempt.setUser(user);
         attempt.setExerciseType(exerciseType);
-        attempt.setExerciseName(buildExerciseName(request));
-        attempt.setLevel(request.getLevel());
-        attempt.setTopic(request.getTopic());
-        attempt.setAnswerType(request.getType());
+        attempt.setExerciseName(buildExerciseName(level, topic, answerType));
+        attempt.setLevel(level);
+        attempt.setTopic(topic);
+        attempt.setAnswerType(answerType);
 
         return exerciseAttemptRepo.save(attempt).getId();
     }
@@ -154,9 +167,13 @@ public class UserProgressService {
     }
 
     private String buildExerciseName(ExerciseRequestDto request) {
-        String level = request.getLevel() == null ? "UNKNOWN_LEVEL" : request.getLevel();
-        String topic = request.getTopic() == null ? "UNKNOWN_TOPIC" : request.getTopic();
-        String type = request.getType() == null ? "GENERAL" : request.getType();
+        return buildExerciseName(request.getLevel(), request.getTopic(), request.getType());
+    }
+
+    private String buildExerciseName(String levelValue, String topicValue, String typeValue) {
+        String level = levelValue == null ? "UNKNOWN_LEVEL" : levelValue;
+        String topic = topicValue == null ? "UNKNOWN_TOPIC" : topicValue;
+        String type = typeValue == null ? "GENERAL" : typeValue;
 
         return level + " " + topic + " " + type;
     }

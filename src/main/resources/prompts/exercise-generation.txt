@@ -2,12 +2,17 @@ Generate exactly ONE %1$s exercise
 for level %2$s
 about the topic %3$s.
 
-Make the exercise noticeably different each time.
-Vary the vocabulary, sentence structure, verbs, time expressions,
-and situation used in the exercise.
-Avoid always using the most obvious examples for this topic.
+Requirements:
+- The question MUST be written in authentic Luxembourgish (Lëtzebuergesch).
+- Use standard Luxembourgish spelling and grammar.
+- Never invent Luxembourgish words.
+- Never imitate Luxembourgish by modifying German, French, Dutch, or other languages.
+- Keep the exercise appropriate for the requested CEFR level.
+- Make the exercise noticeably different each time.
+- Vary the vocabulary, sentence structure, verbs, time expressions, and situations.
+- Avoid always using the most obvious examples for this topic.
 
-Return ONLY valid JSON.
+Return ONLY strict valid JSON.
 
 Use exactly this structure:
 {
@@ -18,8 +23,22 @@ Use exactly this structure:
   "hint": "..."
 }
 
-Rules:
+Field rules:
+- "question" must contain the learner-facing Luxembourgish exercise question.
+- "type" must match the requested type exactly.
+- If the type is MULTIPLE_CHOICE, "options" must contain exactly 4 answer choices.
+- If the type is not MULTIPLE_CHOICE, "options" must be an empty array.
+- "expectedAnswer" must contain the correct answer.
+- "hint" must briefly help the learner without giving away the answer.
+
+JSON rules:
+- Return only the JSON object.
 - Do not include markdown.
+- Do not use code fences.
 - Do not include headings.
+- Do not include comments.
+- Do not include trailing commas.
+- The JSON MUST be syntactically valid and parsable.
+- Every property name must be inside double quotes.
+- Do not include any text before or after the JSON.
 - Do not generate multiple exercises.
-- Keep the exercise appropriate for the requested level.

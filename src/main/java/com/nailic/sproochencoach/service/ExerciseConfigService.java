@@ -12,6 +12,7 @@ import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.ExerciseTypeOptionDto;
 import com.nailic.sproochencoach.dto.LevelOptionDto;
 import com.nailic.sproochencoach.dto.TopicOptionDto;
+import com.nailic.sproochencoach.dto.VocabularyRequestDto;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.model.ExerciseLevelConfig;
 import com.nailic.sproochencoach.model.ExerciseTopicConfig;
@@ -186,20 +187,10 @@ public class ExerciseConfigService {
         ExerciseTopicConfig topic = topicByCode(request.getTopic());
         ExerciseTypeConfig type = typeByCode(request.getType());
 
-        if (!level.isEnabled()) {
-            throw new BadRequestException("Exercise level is disabled");
-        }
-
-        if (!topic.isEnabled()) {
-            throw new BadRequestException("Exercise topic is disabled");
-        }
+        validateEnabledLevelTopic(level, topic);
 
         if (!type.isEnabled()) {
             throw new BadRequestException("Exercise type is disabled");
-        }
-
-        if (!topic.getLevelCode().equals(level.getCode())) {
-            throw new BadRequestException("Exercise topic does not belong to the selected level");
         }
     }
 
@@ -211,6 +202,18 @@ public class ExerciseConfigService {
         normalizedRequest.setLevel(normalizeCode(request.getLevel()));
         normalizedRequest.setTopic(normalizeCode(request.getTopic()));
         normalizedRequest.setType(normalizeCode(request.getType()));
+        return normalizedRequest;
+    }
+
+    @Transactional(readOnly = true)
+    public VocabularyRequestDto normalizedVocabularyRequest(VocabularyRequestDto request) {
+        ExerciseLevelConfig level = levelByCode(request.getLevel());
+        ExerciseTopicConfig topic = topicByCode(request.getTopic());
+        validateEnabledLevelTopic(level, topic);
+
+        VocabularyRequestDto normalizedRequest = new VocabularyRequestDto();
+        normalizedRequest.setLevel(normalizeCode(request.getLevel()));
+        normalizedRequest.setTopic(normalizeCode(request.getTopic()));
         return normalizedRequest;
     }
 
@@ -286,6 +289,20 @@ public class ExerciseConfigService {
     private ExerciseTypeConfig typeByCode(String code) {
         return typeRepo.findByCode(normalizeCode(code))
                 .orElseThrow(() -> new BadRequestException("Exercise type not found"));
+    }
+
+    private void validateEnabledLevelTopic(ExerciseLevelConfig level, ExerciseTopicConfig topic) {
+        if (!level.isEnabled()) {
+            throw new BadRequestException("Exercise level is disabled");
+        }
+
+        if (!topic.isEnabled()) {
+            throw new BadRequestException("Exercise topic is disabled");
+        }
+
+        if (!topic.getLevelCode().equals(level.getCode())) {
+            throw new BadRequestException("Exercise topic does not belong to the selected level");
+        }
     }
 
     private AdminLevelOptionDto toLevelDto(ExerciseLevelConfig level) {

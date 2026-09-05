@@ -1,8 +1,8 @@
 package com.nailic.sproochencoach.service;
 
-import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.UsefulSentencesDto;
 import com.nailic.sproochencoach.dto.VocabularyDto;
+import com.nailic.sproochencoach.dto.VocabularyRequestDto;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +11,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class VocabularyService {
@@ -21,7 +19,7 @@ public class VocabularyService {
     private static final String PROMPT_KEY = "vocabulary-generation";
 
     private final AiChatClient aiChatClient;
-    private final ObjectMapper objectMapper;
+    private final AiJsonParser aiJsonParser;
     private final PromptFileService promptFileService;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
@@ -29,21 +27,21 @@ public class VocabularyService {
     private Resource resource;
     public VocabularyService(
             AiChatClient aiChatClient,
-            ObjectMapper objectMapper,
+            AiJsonParser aiJsonParser,
             PromptFileService promptFileService,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService
 
     ) {
         this.aiChatClient = aiChatClient;
-        this.objectMapper = objectMapper;
+        this.aiJsonParser = aiJsonParser;
         this.promptFileService = promptFileService;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
     }
 
-    public VocabularyDto generateVocabExercise(ExerciseRequestDto exerciseRequestDto) {
-        ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
+    public VocabularyDto generateVocabExercise(VocabularyRequestDto exerciseRequestDto) {
+        VocabularyRequestDto request = exerciseConfigService.normalizedVocabularyRequest(exerciseRequestDto);
         String topicLabel = exerciseConfigService.topicLabel(request.getTopic());
 
         String promptTemplate = promptFileService.readWithAdminGuidance(PROMPT_KEY, resource);
@@ -55,22 +53,10 @@ public class VocabularyService {
 
         String content = aiChatClient.complete(prompt, "vocabulary exercise");
 
-        try {
-            VocabularyDto exercise = objectMapper.readValue(
-                    content,
-                    VocabularyDto.class
-            );
-            validateVocabularyExercise(exercise);
-            exercise.setAttemptId(userProgressService.recordGeneratedExercise("VOCABULARY", request));
-            return exercise;
-        } catch (JacksonException exception) {
-            log.error("Failed to parse AI provider vocabulary exercise JSON. contentLength={}, jacksonMessage={}", content == null ? 0 : content.length(), exception.getMessage());
-
-            throw new AiProviderException(
-                    HttpStatus.BAD_GATEWAY.value(),
-                    "AI provider returned invalid vocabulary exercise JSON"
-            );
-        }
+        VocabularyDto exercise = aiJsonParser.parseObject(content, VocabularyDto.class, "vocabulary exercise");
+        validateVocabularyExercise(exercise);
+        exercise.setAttemptId(userProgressService.recordGeneratedVocabularyExercise("VOCABULARY", request));
+        return exercise;
     }
 
     private void validateVocabularyExercise(VocabularyDto exercise) {
