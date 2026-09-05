@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.AudioExerciseDto;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.TtsRequest;
@@ -14,10 +15,8 @@ import org.springframework.web.client.RestClient;
 @Service
 public class AudioExerciseGenerationService {
     private static final Logger log = LoggerFactory.getLogger(AudioExerciseGenerationService.class);
-    private static final String TTS_PROVIDER = "elevenlabs";
-    private static final String TTS_MODEL = "eleven_multilingual_v2";
 
-    @Value("${ai.elevenlabs.voice-id}")
+    @Value(AppConstants.PropertyPlaceholders.AI_ELEVENLABS_VOICE_ID)
     private String voiceId;
     private final AiChatClient aiChatClient;
     private final RestClient ttsRestClient;
@@ -28,7 +27,7 @@ public class AudioExerciseGenerationService {
 
     public AudioExerciseGenerationService(
             AiChatClient aiChatClient,
-            @Qualifier("ttsRestClient") RestClient ttsRestClient,
+            @Qualifier(AppConstants.RestClientBeans.TTS) RestClient ttsRestClient,
             AiJsonParser aiJsonParser,
             AiUsageService aiUsageService,
             ExerciseConfigService exerciseConfigService,
@@ -61,15 +60,15 @@ public class AudioExerciseGenerationService {
 
         TtsRequest ttsRequest = new TtsRequest(
                 result.getQuestion(),
-                TTS_MODEL
+                AppConstants.Models.ELEVEN_MULTILINGUAL_V2
         );
 
         byte[] audio;
         try {
             audio = ttsRestClient.post()
-                    .uri("/text-to-speech/" + voiceId)
+                    .uri(AppConstants.ApiPaths.ELEVENLABS_TEXT_TO_SPEECH + voiceId)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.valueOf("audio/mpeg"))
+                    .accept(MediaType.valueOf(AppConstants.Http.AUDIO_MPEG))
                     .body(ttsRequest)
                     .retrieve()
                     .body(byte[].class);
@@ -79,7 +78,12 @@ public class AudioExerciseGenerationService {
         }
 
         result.setAudio(audio);
-        aiUsageService.recordCharacterUsage(TTS_PROVIDER, TTS_MODEL, exerciseName + " audio", ttsRequest.getText());
+        aiUsageService.recordCharacterUsage(
+                AppConstants.Providers.ELEVENLABS,
+                AppConstants.Models.ELEVEN_MULTILINGUAL_V2,
+                exerciseName + " audio",
+                ttsRequest.getText()
+        );
         return result;
     }
 }

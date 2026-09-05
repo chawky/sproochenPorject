@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -9,16 +10,16 @@ import org.springframework.stereotype.Service;
 public class AiModelRouter {
     private final UserPlanTierResolver userPlanTierResolver;
 
-    @Value("${ai.chat.basic.provider}")
+    @Value(AppConstants.PropertyPlaceholders.AI_CHAT_BASIC_PROVIDER)
     private String basicProvider;
 
-    @Value("${ai.chat.basic.model}")
+    @Value(AppConstants.PropertyPlaceholders.AI_CHAT_BASIC_MODEL)
     private String basicModel;
 
-    @Value("${ai.chat.premium.provider}")
+    @Value(AppConstants.PropertyPlaceholders.AI_CHAT_PREMIUM_PROVIDER)
     private String premiumProvider;
 
-    @Value("${ai.chat.premium.model}")
+    @Value(AppConstants.PropertyPlaceholders.AI_CHAT_PREMIUM_MODEL)
     private String premiumModel;
 
     public AiModelRoute currentUserRoute() {

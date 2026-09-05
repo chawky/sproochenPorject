@@ -1,9 +1,11 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.SpeakingDto;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
+import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,19 +24,17 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class SpeakingService {
     private static final Logger log = LoggerFactory.getLogger(SpeakingService.class);
-    private static final String STT_PROVIDER = "groq";
-    private static final String STT_MODEL = "whisper-large-v3";
-    private static final String SPEAKING_GENERATION_PROMPT_KEY = "speaking-generation";
-    private static final String SPEAKING_EVALUATION_PROMPT_KEY = "speaking-evaluation";
-    private static final String TRANSCRIPTION_PROMPT_KEY = "groq-transcription";
+    private static final String SPEAKING_GENERATION_PROMPT_KEY = PromptTemplateKey.SPEAKING_GENERATION.getKey();
+    private static final String SPEAKING_EVALUATION_PROMPT_KEY = PromptTemplateKey.SPEAKING_EVALUATION.getKey();
+    private static final String TRANSCRIPTION_PROMPT_KEY = PromptTemplateKey.GROQ_TRANSCRIPTION.getKey();
 
-    @Value("${ai.prompts.speaking-generation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_SPEAKING_GENERATION)
     private Resource speakingGenerationPromptResource;
 
-    @Value("${ai.prompts.speaking-evaluation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_SPEAKING_EVALUATION)
     private Resource speakingEvaluationPromptResource;
 
-    @Value("${ai.prompts.transcription}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_TRANSCRIPTION)
     private Resource transcriptionPromptResource;
     private final AiChatClient aiChatClient;
     private final RestClient groqRestClient;
@@ -48,7 +48,7 @@ public class SpeakingService {
 
     public SpeakingService(
             AiChatClient aiChatClient,
-            @Qualifier("groqRestClient") RestClient groqRestClient,
+            @Qualifier(AppConstants.RestClientBeans.GROQ) RestClient groqRestClient,
             ObjectMapper objectMapper,
             PromptFileService promptFileService,
             AudioExerciseGenerationService audioExerciseGenerationService,
@@ -76,7 +76,7 @@ public class SpeakingService {
                 SpeakingDto.class,
                 "speaking prompt"
         );
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise("SPEAKING", request));
+        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.SPEAKING, request));
         return exercise;
     }
 
@@ -103,7 +103,7 @@ public class SpeakingService {
                     SpeakingEvaluation.class
             );
             userProgressService.recordEvaluation(
-                    "SPEAKING",
+                    AppConstants.ExerciseAttemptTypes.SPEAKING,
                     "speaking evaluation",
                     evaluation.getScore(),
                     attemptId,
@@ -128,15 +128,15 @@ public class SpeakingService {
         aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.STT);
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
-        body.add("file", audio.getResource());
-        body.add("model", STT_MODEL);
-        body.add("response_format", "text");
-        body.add("language", "lb");
-        body.add("prompt", promptFileService.readWithAdminGuidance(TRANSCRIPTION_PROMPT_KEY, transcriptionPromptResource));
+        body.add(AppConstants.GroqRequestFields.FILE, audio.getResource());
+        body.add(AppConstants.GroqRequestFields.MODEL, AppConstants.Models.WHISPER_LARGE_V3);
+        body.add(AppConstants.GroqRequestFields.RESPONSE_FORMAT, AppConstants.GroqRequestFields.TEXT_RESPONSE_FORMAT);
+        body.add(AppConstants.GroqRequestFields.LANGUAGE, AppConstants.GroqRequestFields.LUXEMBOURGISH_LANGUAGE);
+        body.add(AppConstants.GroqRequestFields.PROMPT, promptFileService.readWithAdminGuidance(TRANSCRIPTION_PROMPT_KEY, transcriptionPromptResource));
 
         try {
             String transcription = groqRestClient.post()
-                    .uri("/audio/transcriptions")
+                    .uri(AppConstants.ApiPaths.GROQ_AUDIO_TRANSCRIPTIONS)
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(body)
                     .retrieve()
@@ -153,10 +153,20 @@ public class SpeakingService {
 
     private void recordTranscriptionUsage(MultipartFile audio, Long audioDurationSeconds) {
         if (audioDurationSeconds != null && audioDurationSeconds > 0) {
-            aiUsageService.recordAudioDurationUsage(STT_PROVIDER, STT_MODEL, "transcription", audioDurationSeconds);
+            aiUsageService.recordAudioDurationUsage(
+                    AppConstants.Providers.GROQ,
+                    AppConstants.Models.WHISPER_LARGE_V3,
+                    "transcription",
+                    audioDurationSeconds
+            );
             return;
         }
 
-        aiUsageService.recordAudioUploadUsage(STT_PROVIDER, STT_MODEL, "transcription", audio.getSize());
+        aiUsageService.recordAudioUploadUsage(
+                AppConstants.Providers.GROQ,
+                AppConstants.Models.WHISPER_LARGE_V3,
+                "transcription",
+                audio.getSize()
+        );
     }
 }

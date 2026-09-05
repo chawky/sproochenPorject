@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.VerifyOtpRequest;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.Otp;
@@ -28,9 +29,9 @@ public class EmailAndOtpService {
     private final OtpRepo otpRepo;
     private final AppUserRepo appUserRepo;
     private final JavaMailSender mailSender;
-    @Value("${spring.mail.username}")
+    @Value(AppConstants.PropertyPlaceholders.SPRING_MAIL_USERNAME)
     private String from;
-    @Value("${security.otp.expiration-ms}")
+    @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_EXPIRATION_MS)
     private long expirationOtp;
 
     public void sendEmailAndSaveOtp(String to) {

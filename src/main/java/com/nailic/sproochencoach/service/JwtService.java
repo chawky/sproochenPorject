@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.model.AppUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -19,10 +20,10 @@ import java.util.Date;
 public class JwtService {
   private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
-  @Value("${security.jwt.secret-key}")
+  @Value(AppConstants.PropertyPlaceholders.SECURITY_JWT_SECRET_KEY)
   private String secretKey;
 
-  @Value("${security.jwt.expiration-time}")
+  @Value(AppConstants.PropertyPlaceholders.SECURITY_JWT_EXPIRATION_TIME)
   private long jwtExpiration;
 
   public String generateToken(AppUser user) {

@@ -1,16 +1,18 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.AudioExerciseDto;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
+import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ListeningService {
-    private static final String PROMPT_KEY = "listening-generation";
+    private static final String PROMPT_KEY = PromptTemplateKey.LISTENING_GENERATION.getKey();
 
-    @Value("${ai.prompts.listening-generation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_LISTENING_GENERATION)
     private Resource listeningGenerationPromptResource;
 
     private final AudioExerciseGenerationService audioExerciseGenerationService;
@@ -39,7 +41,7 @@ public class ListeningService {
                 "listening exercise"
         );
 
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise("LISTENING", request));
+        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request));
 
         return exercise;
     }

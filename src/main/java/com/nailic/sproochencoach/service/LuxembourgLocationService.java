@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.LocationSuggestionDto;
 import com.nailic.sproochencoach.exceptions.LocationProviderException;
 import org.slf4j.Logger;
@@ -21,20 +22,20 @@ public class LuxembourgLocationService {
 
     private final RestClient geoportailRestClient;
 
-    @Value("${luxembourg.geoportail.fulltext-search-uri}")
+    @Value(AppConstants.PropertyPlaceholders.LUXEMBOURG_GEOPORTAIL_FULLTEXT_SEARCH_URI)
     private String fulltextSearchUri;
 
-    @Value("${luxembourg.geoportail.location-layers}")
+    @Value(AppConstants.PropertyPlaceholders.LUXEMBOURG_GEOPORTAIL_LOCATION_LAYERS)
     private String locationLayers;
 
-    @Value("${luxembourg.geoportail.default-limit}")
+    @Value(AppConstants.PropertyPlaceholders.LUXEMBOURG_GEOPORTAIL_DEFAULT_LIMIT)
     private int defaultLimit;
 
-    @Value("${luxembourg.geoportail.max-limit}")
+    @Value(AppConstants.PropertyPlaceholders.LUXEMBOURG_GEOPORTAIL_MAX_LIMIT)
     private int maxLimit;
 
     public LuxembourgLocationService(
-            @Qualifier("geoportailRestClient") RestClient geoportailRestClient
+            @Qualifier(AppConstants.RestClientBeans.GEOPORTAIL) RestClient geoportailRestClient
     ) {
         this.geoportailRestClient = geoportailRestClient;
     }

@@ -1,9 +1,11 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.UsefulSentencesDto;
 import com.nailic.sproochencoach.dto.VocabularyDto;
 import com.nailic.sproochencoach.dto.VocabularyRequestDto;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
+import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,14 +18,14 @@ import org.springframework.util.StringUtils;
 public class VocabularyService {
     private static final Logger log = LoggerFactory.getLogger(VocabularyService.class);
     private static final int VOCABULARY_ITEM_COUNT = 5;
-    private static final String PROMPT_KEY = "vocabulary-generation";
+    private static final String PROMPT_KEY = PromptTemplateKey.VOCABULARY_GENERATION.getKey();
 
     private final AiChatClient aiChatClient;
     private final AiJsonParser aiJsonParser;
     private final PromptFileService promptFileService;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
-    @Value("${ai.prompts.vocabulary-generation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_VOCABULARY_GENERATION)
     private Resource resource;
     public VocabularyService(
             AiChatClient aiChatClient,
@@ -55,7 +57,7 @@ public class VocabularyService {
 
         VocabularyDto exercise = aiJsonParser.parseObject(content, VocabularyDto.class, "vocabulary exercise");
         validateVocabularyExercise(exercise);
-        exercise.setAttemptId(userProgressService.recordGeneratedVocabularyExercise("VOCABULARY", request));
+        exercise.setAttemptId(userProgressService.recordGeneratedVocabularyExercise(AppConstants.ExerciseAttemptTypes.VOCABULARY, request));
         return exercise;
     }
 

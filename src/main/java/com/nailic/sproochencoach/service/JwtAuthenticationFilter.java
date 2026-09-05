@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.model.AppUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
@@ -40,14 +42,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    String header = request.getHeader("Authorization");
+    String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-    if (header == null || !header.startsWith("Bearer ")) {
+    if (header == null || !header.startsWith(AppConstants.Http.BEARER_PREFIX)) {
       filterChain.doFilter(request, response);
       return;
     }
 
-    String jwt = header.substring(7);
+    String jwt = header.substring(AppConstants.Http.BEARER_PREFIX.length());
     String email;
     try {
       email = jwtService.extractUsername(jwt);

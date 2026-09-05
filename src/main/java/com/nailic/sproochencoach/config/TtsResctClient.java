@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.config;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,16 +8,17 @@ import org.springframework.web.client.RestClient;
 
 @Configuration
 public class TtsResctClient {
-    @Value("${ai.elevenlabs.api-key}")
+    @Value(AppConstants.PropertyPlaceholders.AI_ELEVENLABS_API_KEY)
     private String apiKey;
 
-    @Value("${ai.elevenlabs.base-url}")
+    @Value(AppConstants.PropertyPlaceholders.AI_ELEVENLABS_BASE_URL)
     private String baseUrl;
-    @Bean("ttsRestClient")
-    public RestClient ttsRestClient() {
+    @Bean(AppConstants.RestClientBeans.TTS)
+    public RestClient ttsRestClient(OutboundApiCallLoggingInterceptorFactory loggingInterceptorFactory) {
         return RestClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("xi-api-key", apiKey)
+                .defaultHeader(AppConstants.Http.XI_API_KEY_HEADER, apiKey)
+                .requestInterceptor(loggingInterceptorFactory.create(AppConstants.Providers.ELEVENLABS))
                 .build();
     }
 }

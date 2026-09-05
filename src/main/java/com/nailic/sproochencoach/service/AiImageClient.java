@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,19 +25,19 @@ import java.util.Map;
 public class AiImageClient {
     private static final Logger log = LoggerFactory.getLogger(AiImageClient.class);
 
-    @Value("${ai.image.provider}")
+    @Value(AppConstants.PropertyPlaceholders.AI_IMAGE_PROVIDER)
     private String provider;
 
-    @Value("${ai.openrouter.image-uri}")
+    @Value(AppConstants.PropertyPlaceholders.AI_OPENROUTER_IMAGE_URI)
     private String openRouterImageUri;
 
-    @Value("${ai.openrouter.image-model}")
+    @Value(AppConstants.PropertyPlaceholders.AI_OPENROUTER_IMAGE_MODEL)
     private String openRouterImageModel;
 
-    @Value("${ai.kimi.image-uri}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_IMAGE_URI)
     private String kimiImageUri;
 
-    @Value("${ai.kimi.image-model}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_IMAGE_MODEL)
     private String kimiImageModel;
 
     private final RestClient openRouterRestClient;
@@ -46,8 +47,8 @@ public class AiImageClient {
     private final AiQuotaService aiQuotaService;
 
     public AiImageClient(
-            @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
-            @Qualifier("kimiImageGenerationRestClient") RestClient kimiImageRestClient,
+            @Qualifier(AppConstants.RestClientBeans.OPEN_ROUTER) RestClient openRouterRestClient,
+            @Qualifier(AppConstants.RestClientBeans.KIMI_IMAGE_GENERATION) RestClient kimiImageRestClient,
             ObjectMapper objectMapper,
             AiUsageService aiUsageService,
             AiQuotaService aiQuotaService
@@ -62,8 +63,8 @@ public class AiImageClient {
     public byte[] generateImage(String userPrompt) {
         aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.IMAGE);
         return switch (provider.toLowerCase(Locale.ROOT)) {
-            case "openrouter" -> generateImageWithOpenRouter(userPrompt);
-            case "kimi" -> generateImageWithKimi(userPrompt);
+            case AppConstants.Providers.OPEN_ROUTER -> generateImageWithOpenRouter(userPrompt);
+            case AppConstants.Providers.KIMI -> generateImageWithKimi(userPrompt);
             default -> throw new AiProviderException(
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Unsupported AI provider: " + provider
@@ -73,7 +74,7 @@ public class AiImageClient {
 
     private byte[] generateImageWithKimi(String userPrompt) {
         String requestName = "image generation";
-        log.info("AI request. provider={}, model={}, request={}", "kimi-image", kimiImageModel, requestName);
+        log.info("AI request. provider={}, model={}, request={}", AppConstants.Providers.KIMI_IMAGE, kimiImageModel, requestName);
 
         Map<String, Object> requestBody = Map.of(
                 "model", kimiImageModel,
@@ -89,19 +90,19 @@ public class AiImageClient {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (request, response) -> handleError("Kimi image", response.getStatusCode(), response.getBody().readAllBytes(), requestName)
+                        (request, response) -> handleError(AppConstants.ProviderDisplayNames.KIMI_IMAGE, response.getStatusCode(), response.getBody().readAllBytes(), requestName)
                 )
                 .body(String.class);
 
-        Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi image", requestName);
-        byte[] image = extractImageBytes(responseMap, "Kimi image", requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, AppConstants.ProviderDisplayNames.KIMI_IMAGE, requestName);
+        byte[] image = extractImageBytes(responseMap, AppConstants.ProviderDisplayNames.KIMI_IMAGE, requestName);
         recordKimiImageUsage(responseMap, requestName);
         return image;
     }
 
     private byte[] generateImageWithOpenRouter(String userPrompt) {
         String requestName = "image generation";
-        log.info("AI request. provider={}, model={}, request={}", "openrouter-image", openRouterImageModel, requestName);
+        log.info("AI request. provider={}, model={}, request={}", AppConstants.Providers.OPEN_ROUTER_IMAGE, openRouterImageModel, requestName);
 
         Map<String, Object> requestBody = Map.of(
                 "model", openRouterImageModel,
@@ -116,12 +117,12 @@ public class AiImageClient {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (request, response) -> handleError("OpenRouter image", response.getStatusCode(), response.getBody().readAllBytes(), requestName)
+                        (request, response) -> handleError(AppConstants.ProviderDisplayNames.OPEN_ROUTER_IMAGE, response.getStatusCode(), response.getBody().readAllBytes(), requestName)
                 )
                 .body(String.class);
 
-        byte[] image = extractImageBytes(responseBody, "OpenRouter image", requestName);
-        aiUsageService.recordImageUsage("openrouter-image", openRouterImageModel, requestName);
+        byte[] image = extractImageBytes(responseBody, AppConstants.ProviderDisplayNames.OPEN_ROUTER_IMAGE, requestName);
+        aiUsageService.recordImageUsage(AppConstants.Providers.OPEN_ROUTER_IMAGE, openRouterImageModel, requestName);
         return image;
     }
 
@@ -158,7 +159,7 @@ public class AiImageClient {
     private void recordKimiImageUsage(Map<?, ?> responseMap, String requestName) {
         Object usageObject = responseMap.get("usage");
         if (!(usageObject instanceof Map<?, ?> usageMap)) {
-            aiUsageService.recordImageUsage("kimi-image", kimiImageModel, requestName);
+            aiUsageService.recordImageUsage(AppConstants.Providers.KIMI_IMAGE, kimiImageModel, requestName);
             return;
         }
 
@@ -166,11 +167,11 @@ public class AiImageClient {
         Integer outputTokens = integerValue(usageMap.get("output_tokens"));
         Integer totalTokens = integerValue(usageMap.get("total_tokens"));
         if (inputTokens == null && outputTokens == null && totalTokens == null) {
-            aiUsageService.recordImageUsage("kimi-image", kimiImageModel, requestName);
+            aiUsageService.recordImageUsage(AppConstants.Providers.KIMI_IMAGE, kimiImageModel, requestName);
             return;
         }
 
-        aiUsageService.recordChatUsage("kimi-image", kimiImageModel, requestName, inputTokens, outputTokens, totalTokens);
+        aiUsageService.recordChatUsage(AppConstants.Providers.KIMI_IMAGE, kimiImageModel, requestName, inputTokens, outputTokens, totalTokens);
     }
 
     private Integer integerValue(Object value) {

@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -13,28 +14,28 @@ public class AiUsageCostService {
     private static final BigDecimal ONE_THOUSAND = BigDecimal.valueOf(1_000);
     private static final BigDecimal ONE_HOUR_SECONDS = BigDecimal.valueOf(3_600);
 
-    @Value("${ai.usage.pricing.kimi-k3.input-usd-per-million}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_KIMI_K3_INPUT)
     private BigDecimal kimiK3InputUsdPerMillion;
 
-    @Value("${ai.usage.pricing.kimi-k3.output-usd-per-million}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_KIMI_K3_OUTPUT)
     private BigDecimal kimiK3OutputUsdPerMillion;
 
-    @Value("${ai.usage.pricing.openrouter-free.usd}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_OPENROUTER_FREE)
     private BigDecimal openRouterFreeUsd;
 
-    @Value("${ai.usage.pricing.seedream-4-5.usd-per-image}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_SEEDREAM_IMAGE)
     private BigDecimal seedreamUsdPerImage;
 
-    @Value("${ai.usage.pricing.gpt-image-2.input-usd-per-million}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_GPT_IMAGE_2_INPUT)
     private BigDecimal gptImage2InputUsdPerMillion;
 
-    @Value("${ai.usage.pricing.gpt-image-2.output-usd-per-million}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_GPT_IMAGE_2_OUTPUT)
     private BigDecimal gptImage2OutputUsdPerMillion;
 
-    @Value("${ai.usage.pricing.eleven-multilingual-v2.usd-per-1000-characters}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_ELEVEN_MULTILINGUAL)
     private BigDecimal elevenMultilingualUsdPerThousandCharacters;
 
-    @Value("${ai.usage.pricing.whisper-large-v3.usd-per-hour}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_WHISPER_LARGE_V3)
     private BigDecimal whisperLargeV3UsdPerHour;
 
     public BigDecimal estimateCostUsd(
@@ -45,27 +46,35 @@ public class AiUsageCostService {
             String usageUnit,
             Long usageAmount
     ) {
-        if (is(provider, "kimi") && is(model, "moonshotai/kimi-k3")) {
+        if (is(provider, AppConstants.Providers.KIMI) && is(model, AppConstants.Models.KIMI_K3)) {
             return tokenCost(inputTokens, outputTokens, kimiK3InputUsdPerMillion, kimiK3OutputUsdPerMillion);
         }
 
-        if (is(provider, "openrouter") && is(model, "openrouter/free")) {
+        if (is(provider, AppConstants.Providers.OPEN_ROUTER) && is(model, AppConstants.Models.OPEN_ROUTER_FREE)) {
             return openRouterFreeUsd;
         }
 
-        if (is(provider, "openrouter-image") && is(model, "bytedance-seed/seedream-4.5") && is(usageUnit, "IMAGE")) {
+        if (is(provider, AppConstants.Providers.OPEN_ROUTER_IMAGE)
+                && is(model, AppConstants.Models.SEEDREAM_4_5)
+                && is(usageUnit, AppConstants.UsageUnits.IMAGE)) {
             return unitCost(usageAmount, seedreamUsdPerImage, BigDecimal.ONE);
         }
 
-        if (is(provider, "kimi-image") && is(model, "gpt-image-2") && is(usageUnit, "TOKEN")) {
+        if (is(provider, AppConstants.Providers.KIMI_IMAGE)
+                && is(model, AppConstants.Models.GPT_IMAGE_2)
+                && is(usageUnit, AppConstants.UsageUnits.TOKEN)) {
             return tokenCost(inputTokens, outputTokens, gptImage2InputUsdPerMillion, gptImage2OutputUsdPerMillion);
         }
 
-        if (is(provider, "elevenlabs") && is(model, "eleven_multilingual_v2") && is(usageUnit, "CHARACTER")) {
+        if (is(provider, AppConstants.Providers.ELEVENLABS)
+                && is(model, AppConstants.Models.ELEVEN_MULTILINGUAL_V2)
+                && is(usageUnit, AppConstants.UsageUnits.CHARACTER)) {
             return unitCost(usageAmount, elevenMultilingualUsdPerThousandCharacters, ONE_THOUSAND);
         }
 
-        if (is(provider, "groq") && is(model, "whisper-large-v3") && is(usageUnit, "AUDIO_SECOND")) {
+        if (is(provider, AppConstants.Providers.GROQ)
+                && is(model, AppConstants.Models.WHISPER_LARGE_V3)
+                && is(usageUnit, AppConstants.UsageUnits.AUDIO_SECOND)) {
             return unitCost(usageAmount, whisperLargeV3UsdPerHour, ONE_HOUR_SECONDS);
         }
 

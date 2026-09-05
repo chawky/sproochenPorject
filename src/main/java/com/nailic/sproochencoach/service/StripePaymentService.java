@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.StripeSessionURLDto;
 import com.nailic.sproochencoach.exceptions.StripePaymentException;
 import com.nailic.sproochencoach.model.AppUser;
@@ -47,13 +48,13 @@ public class StripePaymentService {
     private final TransactionTemplate transactionTemplate;
     private final SubscriptionPlanRepo subscriptionPlanRepo;
     private final SubscriptionAccessService subscriptionAccessService;
-    @Value("${stripe.price-id}")
+    @Value(AppConstants.PropertyPlaceholders.STRIPE_PRICE_ID)
     private String stripePriceId;
-    @Value("${stripe.success-url}")
+    @Value(AppConstants.PropertyPlaceholders.STRIPE_SUCCESS_URL)
     private String stripeSuccessUrl;
-    @Value("${stripe.cancel-url}")
+    @Value(AppConstants.PropertyPlaceholders.STRIPE_CANCEL_URL)
     private String stripeCancelUrl;
-    @Value("${stripe.webhook-secret}")
+    @Value(AppConstants.PropertyPlaceholders.STRIPE_WEBHOOK_SECRET)
     private String stripeWebhookSecret;
 
     public StripeSessionURLDto createStripeCheckoutSession() {

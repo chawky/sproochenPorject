@@ -1,16 +1,18 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedExerciseDto;
+import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ExerciseService {
-    private static final String PROMPT_KEY = "exercise-generation";
+    private static final String PROMPT_KEY = PromptTemplateKey.EXERCISE_GENERATION.getKey();
 
-    @Value("${ai.prompts.exercise-generation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_EXERCISE_GENERATION)
     private Resource exerciseGenerationPromptResource;
     private final AiChatClient aiChatClient;
     private final AiJsonParser aiJsonParser;
@@ -43,7 +45,7 @@ public class ExerciseService {
 
         String content = aiChatClient.complete(prompt, "text exercise");
         GeneratedExerciseDto exercise = aiJsonParser.parseObject(content, GeneratedExerciseDto.class, "exercise");
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise("TEXT_EXERCISE", request));
+        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.TEXT_EXERCISE, request));
         return exercise;
     }
 }

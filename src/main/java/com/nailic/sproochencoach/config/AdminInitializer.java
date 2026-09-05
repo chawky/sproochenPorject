@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.config;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AppUserRepo;
@@ -18,7 +19,7 @@ public class AdminInitializer implements CommandLineRunner {
     private final AppUserRepo userRepo;
     private final RoleRepo roleRepo;
 
-    @Value("${app.admin.email:}")
+    @Value(AppConstants.PropertyPlaceholders.APP_ADMIN_EMAIL)
     private String adminEmail;
 
     @Override
@@ -36,7 +37,7 @@ public class AdminInitializer implements CommandLineRunner {
             return;
         }
 
-        AppRole adminRole = roleRepo.findByName("ADMIN");
+        AppRole adminRole = roleRepo.findByName(AppConstants.Roles.ADMIN);
         if (adminRole == null) {
             throw new IllegalStateException("ADMIN role does not exist");
         }

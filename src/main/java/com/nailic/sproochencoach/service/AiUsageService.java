@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
 import com.nailic.sproochencoach.dto.PageResponseDto;
@@ -31,11 +32,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class AiUsageService {
     private static final Logger log = LoggerFactory.getLogger(AiUsageService.class);
-    private static final String TOKEN_UNIT = "TOKEN";
-    private static final String IMAGE_UNIT = "IMAGE";
-    private static final String CHARACTER_UNIT = "CHARACTER";
-    private static final String AUDIO_SECOND_UNIT = "AUDIO_SECOND";
-    private static final String AUDIO_BYTE_UNIT = "AUDIO_BYTE";
 
     private final AiUsageRepo aiUsageRepo;
     private final AiUsageCostService aiUsageCostService;
@@ -55,7 +51,7 @@ public class AiUsageService {
                 inputTokens,
                 outputTokens,
                 totalTokens,
-                TOKEN_UNIT,
+                AppConstants.UsageUnits.TOKEN,
                 totalTokens == null ? null : totalTokens.longValue()
         );
     }
@@ -70,20 +66,20 @@ public class AiUsageService {
     }
 
     public void recordImageUsage(String provider, String model, String requestName) {
-        recordUsage(provider, model, requestName, null, null, null, IMAGE_UNIT, 1L);
+        recordUsage(provider, model, requestName, null, null, null, AppConstants.UsageUnits.IMAGE, 1L);
     }
 
     public void recordCharacterUsage(String provider, String model, String requestName, String text) {
         long characterCount = text == null ? 0 : text.length();
-        recordUsage(provider, model, requestName, null, null, null, CHARACTER_UNIT, characterCount);
+        recordUsage(provider, model, requestName, null, null, null, AppConstants.UsageUnits.CHARACTER, characterCount);
     }
 
     public void recordAudioUploadUsage(String provider, String model, String requestName, long audioBytes) {
-        recordUsage(provider, model, requestName, null, null, null, AUDIO_BYTE_UNIT, audioBytes);
+        recordUsage(provider, model, requestName, null, null, null, AppConstants.UsageUnits.AUDIO_BYTE, audioBytes);
     }
 
     public void recordAudioDurationUsage(String provider, String model, String requestName, long durationSeconds) {
-        recordUsage(provider, model, requestName, null, null, null, AUDIO_SECOND_UNIT, durationSeconds);
+        recordUsage(provider, model, requestName, null, null, null, AppConstants.UsageUnits.AUDIO_SECOND, durationSeconds);
     }
 
     private void recordUsage(
@@ -319,10 +315,18 @@ public class AiUsageService {
             jakarta.persistence.criteria.CriteriaBuilder criteriaBuilder
     ) {
         return switch (category) {
-            case CHAT -> criteriaBuilder.lower(root.get("provider")).in(List.of("openrouter", "kimi"));
-            case TTS -> criteriaBuilder.equal(criteriaBuilder.lower(root.get("provider")), "elevenlabs");
-            case STT -> criteriaBuilder.equal(criteriaBuilder.lower(root.get("provider")), "groq");
-            case IMAGE -> criteriaBuilder.lower(root.get("provider")).in(List.of("openrouter-image", "kimi-image"));
+            case CHAT -> criteriaBuilder.lower(root.get("provider"))
+                    .in(List.of(AppConstants.Providers.OPEN_ROUTER, AppConstants.Providers.KIMI));
+            case TTS -> criteriaBuilder.equal(
+                    criteriaBuilder.lower(root.get("provider")),
+                    AppConstants.Providers.ELEVENLABS
+            );
+            case STT -> criteriaBuilder.equal(
+                    criteriaBuilder.lower(root.get("provider")),
+                    AppConstants.Providers.GROQ
+            );
+            case IMAGE -> criteriaBuilder.lower(root.get("provider"))
+                    .in(List.of(AppConstants.Providers.OPEN_ROUTER_IMAGE, AppConstants.Providers.KIMI_IMAGE));
         };
     }
 }

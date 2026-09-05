@@ -1,9 +1,11 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.GeneratedImageDto;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
+import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,13 +20,13 @@ import tools.jackson.databind.ObjectMapper;
 public class ImageDescriptionService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageDescriptionService.class);
-    private static final String IMAGE_GENERATION_PROMPT_KEY = "image-generation";
-    private static final String IMAGE_EVALUATION_PROMPT_KEY = "image-description-evaluation";
+    private static final String IMAGE_GENERATION_PROMPT_KEY = PromptTemplateKey.IMAGE_GENERATION.getKey();
+    private static final String IMAGE_EVALUATION_PROMPT_KEY = PromptTemplateKey.IMAGE_DESCRIPTION_EVALUATION.getKey();
 
-    @Value("${ai.prompts.image-generation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_IMAGE_GENERATION)
     private Resource imageGenerationPromptResource;
 
-    @Value("${ai.prompts.image-description-evaluation}")
+    @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_IMAGE_DESCRIPTION_EVALUATION)
     private Resource imageDescriptionEvaluationPromptResource;
     private final PromptFileService promptFileService;
     private final AiChatClient aiChatClient;
@@ -68,7 +70,7 @@ public class ImageDescriptionService {
         GeneratedImageDto generatedImageDto = new GeneratedImageDto();
         generatedImageDto.setImage(aiImageClient.generateImage(imageDescription));
         generatedImageDto.setImageDescription(imageDescription);
-        generatedImageDto.setAttemptId(userProgressService.recordGeneratedExercise("IMAGE_DESCRIPTION", normalizedRequest));
+        generatedImageDto.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION, normalizedRequest));
         return generatedImageDto;
     }
 
@@ -95,7 +97,7 @@ public class ImageDescriptionService {
                     SpeakingEvaluation.class
             );
             userProgressService.recordEvaluation(
-                    "IMAGE_DESCRIPTION",
+                    AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION,
                     "image description evaluation",
                     evaluation.getScore(),
                     attemptId,

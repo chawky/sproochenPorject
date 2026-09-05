@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,25 +26,25 @@ import java.util.stream.Collectors;
 public class AiChatClient {
     private static final Logger log = LoggerFactory.getLogger(AiChatClient.class);
 
-    @Value("${ai.chat.temperature}")
+    @Value(AppConstants.PropertyPlaceholders.AI_CHAT_TEMPERATURE)
     private double temperature;
 
-    @Value("${ai.openrouter.completion-uri}")
+    @Value(AppConstants.PropertyPlaceholders.AI_OPENROUTER_COMPLETION_URI)
     private String openRouterCompletionUri;
 
-    @Value("${ai.kimi.messages-uri}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_MESSAGES_URI)
     private String kimiMessagesUri;
 
-    @Value("${ai.kimi.max-tokens}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_MAX_TOKENS)
     private int kimiMaxTokens;
 
-    @Value("${ai.kimi.thinking-enabled}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_THINKING_ENABLED)
     private boolean kimiThinkingEnabled;
 
-    @Value("${ai.kimi.thinking-budget-tokens}")
+    @Value(AppConstants.PropertyPlaceholders.AI_KIMI_THINKING_BUDGET_TOKENS)
     private int kimiThinkingBudgetTokens;
 
-    @Value("${ai.system.content}")
+    @Value(AppConstants.PropertyPlaceholders.AI_SYSTEM_CONTENT)
     private String systemContent;
 
     private final RestClient openRouterRestClient;
@@ -54,8 +55,8 @@ public class AiChatClient {
     private final AiQuotaService aiQuotaService;
 
     public AiChatClient(
-            @Qualifier("openRouterRestClient") RestClient openRouterRestClient,
-            @Qualifier("anthropicRestClient") RestClient anthropicRestClient,
+            @Qualifier(AppConstants.RestClientBeans.OPEN_ROUTER) RestClient openRouterRestClient,
+            @Qualifier(AppConstants.RestClientBeans.ANTHROPIC) RestClient anthropicRestClient,
             ObjectMapper objectMapper,
             AiUsageService aiUsageService,
             AiModelRouter aiModelRouter,
@@ -74,8 +75,8 @@ public class AiChatClient {
         AiModelRoute route = aiModelRouter.currentUserRoute();
 
         return switch (route.provider().toLowerCase(Locale.ROOT)) {
-            case "openrouter" -> completeWithOpenRouter(userPrompt, requestName, route.model());
-            case "kimi" -> completeWithKimi(userPrompt, requestName, route.model());
+            case AppConstants.Providers.OPEN_ROUTER -> completeWithOpenRouter(userPrompt, requestName, route.model());
+            case AppConstants.Providers.KIMI -> completeWithKimi(userPrompt, requestName, route.model());
             default -> throw new AiProviderException(
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Unsupported AI provider: " + route.provider()
@@ -84,7 +85,7 @@ public class AiChatClient {
     }
 
     private String completeWithOpenRouter(String userPrompt, String requestName, String model) {
-        log.info("AI request. provider={}, model={}, request={}", "openrouter", model, requestName);
+        log.info("AI request. provider={}, model={}, request={}", AppConstants.Providers.OPEN_ROUTER, model, requestName);
 
         Map<String, Object> requestBody = Map.of(
                 "model", model,
@@ -109,20 +110,20 @@ public class AiChatClient {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (request, response) -> handleError("OpenRouter", response.getStatusCode(), response.getBody().readAllBytes(), requestName)
+                        (request, response) -> handleError(AppConstants.ProviderDisplayNames.OPEN_ROUTER, response.getStatusCode(), response.getBody().readAllBytes(), requestName)
                 )
                 .body(String.class);
 
-        Map<?, ?> responseMap = readResponseMap(responseBody, "OpenRouter", requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, AppConstants.ProviderDisplayNames.OPEN_ROUTER, requestName);
         String content = extractOpenRouterText(responseMap, requestName);
         TokenUsage tokenUsage = extractOpenRouterTokenUsage(responseMap);
-        recordTokenUsage("openrouter", model, requestName, tokenUsage);
+        recordTokenUsage(AppConstants.Providers.OPEN_ROUTER, model, requestName, tokenUsage);
 
         return content;
     }
 
     private String completeWithKimi(String userPrompt, String requestName, String model) {
-        log.info("AI request. provider={}, model={}, request={}", "kimi", model, requestName);
+        log.info("AI request. provider={}, model={}, request={}", AppConstants.Providers.KIMI, model, requestName);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);
@@ -156,14 +157,14 @@ public class AiChatClient {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (request, response) -> handleError("Kimi", response.getStatusCode(), response.getBody().readAllBytes(), requestName)
+                        (request, response) -> handleError(AppConstants.ProviderDisplayNames.KIMI, response.getStatusCode(), response.getBody().readAllBytes(), requestName)
                 )
                 .body(String.class);
 
-        Map<?, ?> responseMap = readResponseMap(responseBody, "Kimi", requestName);
+        Map<?, ?> responseMap = readResponseMap(responseBody, AppConstants.ProviderDisplayNames.KIMI, requestName);
         String content = extractAnthropicText(responseMap, requestName);
         TokenUsage tokenUsage = extractAnthropicTokenUsage(responseMap);
-        recordTokenUsage("kimi", model, requestName, tokenUsage);
+        recordTokenUsage(AppConstants.Providers.KIMI, model, requestName, tokenUsage);
 
         return content;
     }
@@ -206,22 +207,22 @@ public class AiChatClient {
     private String extractOpenRouterText(Map<?, ?> responseMap, String requestName) {
         Object choicesObject = responseMap.get("choices");
         if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
-            throw invalidResponse("OpenRouter", requestName, "choices are missing");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.OPEN_ROUTER, requestName, "choices are missing");
         }
 
         Object firstChoiceObject = choices.get(0);
         if (!(firstChoiceObject instanceof Map<?, ?> firstChoice)) {
-            throw invalidResponse("OpenRouter", requestName, "first choice is invalid");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.OPEN_ROUTER, requestName, "first choice is invalid");
         }
 
         Object messageObject = firstChoice.get("message");
         if (!(messageObject instanceof Map<?, ?> message)) {
-            throw invalidResponse("OpenRouter", requestName, "message is missing");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.OPEN_ROUTER, requestName, "message is missing");
         }
 
         Object contentObject = message.get("content");
         if (!(contentObject instanceof String content) || !StringUtils.hasText(content)) {
-            throw invalidResponse("OpenRouter", requestName, "message content is missing");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.OPEN_ROUTER, requestName, "message content is missing");
         }
 
         return content;
@@ -230,7 +231,7 @@ public class AiChatClient {
     private String extractAnthropicText(Map<?, ?> responseMap, String requestName) {
         Object contentObject = responseMap.get("content");
         if (!(contentObject instanceof List<?> contentBlocks) || contentBlocks.isEmpty()) {
-            throw invalidResponse("Kimi", requestName, "content blocks are missing");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.KIMI, requestName, "content blocks are missing");
         }
 
         StringBuilder textBuilder = new StringBuilder();
@@ -245,7 +246,7 @@ public class AiChatClient {
 
         if (!StringUtils.hasText(textBuilder.toString())) {
             log.error("Kimi returned no text for {}. stopReason={}, contentBlockTypes={}", requestName, responseMap.get("stop_reason"), contentBlockTypes(contentBlocks));
-            throw invalidResponse("Kimi", requestName, "text content is missing");
+            throw invalidResponse(AppConstants.ProviderDisplayNames.KIMI, requestName, "text content is missing");
         }
 
         return textBuilder.toString();

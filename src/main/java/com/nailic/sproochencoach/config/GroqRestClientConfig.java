@@ -1,24 +1,27 @@
 package com.nailic.sproochencoach.config;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestClient;
 
 @Configuration
 public class GroqRestClientConfig {
 
-    @Value("${ai.groq.api-key}")
+    @Value(AppConstants.PropertyPlaceholders.AI_GROQ_API_KEY)
     private String apiKey;
 
-    @Value("${ai.groq.base-url}")
+    @Value(AppConstants.PropertyPlaceholders.AI_GROQ_BASE_URL)
     private String baseUrl;
 
-    @Bean("groqRestClient")
-    public RestClient groqRestClient() {
+    @Bean(AppConstants.RestClientBeans.GROQ)
+    public RestClient groqRestClient(OutboundApiCallLoggingInterceptorFactory loggingInterceptorFactory) {
         return RestClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, AppConstants.Http.BEARER_PREFIX + apiKey)
+                .requestInterceptor(loggingInterceptorFactory.create(AppConstants.Providers.GROQ))
                 .build();
     }
 }
