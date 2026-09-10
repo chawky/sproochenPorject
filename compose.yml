@@ -1,4 +1,11 @@
 services:
+  frontend:
+    build:
+      context: ../sproochenFE/luxembourgish-exam-ai-coach
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
   # service name is mysql
   mysql:
     image: mysql:8
@@ -21,6 +28,11 @@ services:
     #RIGHT = inside the container
     ports:
       - "8080:8080" #"HOST_PORT:CONTAINER_PORT"  : When my PC receives something on port 8080, forward it to port 8080 inside this container.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     depends_on:
      mysql: #means start mysql container before backend container
       condition: service_healthy

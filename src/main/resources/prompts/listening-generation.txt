@@ -14,7 +14,7 @@ Core goal:
 - Use "Leit", "App", "Handy", "Tablet", "Zeitung", "Artikel", "Videoen" naturally when relevant.
 
 Language requirements:
-- The listening text MUST be authentic Luxembourgish (Lëtzebuergesch).
+- The listening text MUST be authentic Luxembourgish.
 - Use standard Luxembourgish spelling and grammar.
 - Never invent Luxembourgish words.
 - Never mix the listening text with German, French, Dutch, or English sentences.
@@ -25,22 +25,24 @@ Language requirements:
 
 Answer rules:
 - Decide on ONE clear comprehension question about the listening text.
-- Put that comprehension question in "hint".
+- Put that comprehension question in "hint" in English.
+- "hint" must be written in English.
+- Do not write "hint" in Luxembourgish.
 - "hint" must NOT be a generic instruction.
-- Bad "hint": "Lauschter gutt a schreif déi richteg Äntwert op."
-- Bad "hint": "Lauschter gutt a wielt déi richteg Äntwert."
-- Good "hint": "Wéi eng Sprooch léiert säi Brudder mat enger App?"
-- Good "hint": "Firwat benotzt hien d'App all Dag?"
-- Good "hint": "Wou liest si d'Noriichten?"
+- Bad "hint": "Listen carefully and write the correct answer."
+- Bad "hint": "Listen carefully and choose the correct answer."
+- Good "hint": "Which language does his brother learn with an app?"
+- Good "hint": "Why does he use the app every day?"
+- Good "hint": "Where does she read the news?"
 - "hint" must ask about one concrete detail that is clearly stated in "question".
 - If the requested answer type is MULTIPLE_CHOICE, "options" must contain exactly 4 Luxembourgish answer choices.
 - If the requested answer type is MULTIPLE_CHOICE, all 4 options must answer the question in "hint".
 - If the requested answer type is MULTIPLE_CHOICE, "expectedAnswer" must exactly equal the full correct option string.
-- If the requested answer type is SHORT_ANSWER, "hint" must be a specific Luxembourgish question ending with a question mark.
+- If the requested answer type is SHORT_ANSWER, "hint" must be a specific English question ending with a question mark.
 - If the requested answer type is SHORT_ANSWER, "expectedAnswer" must be a concise Luxembourgish answer to "hint", usually 1 to 6 words.
 - If the requested answer type is not MULTIPLE_CHOICE, "options" must be an empty array.
 - Do not make "expectedAnswer" a random word from the transcript; it must answer "hint".
-- "hintTranslation" must contain the English translation of "hint".
+- "hintTranslation" must exactly match "hint" for backward compatibility.
 
 Quality check before returning:
 - Read the Luxembourgish text once internally.
@@ -63,8 +65,8 @@ Use exactly this structure:
 Field rules:
 - "question" must contain only the Luxembourgish listening transcript.
 - "type" must match the requested answer type exactly.
-- "hint" must contain the learner-facing comprehension question.
-- "hintTranslation" must contain the English translation of the learner-facing comprehension question.
+- "hint" must contain the learner-facing English comprehension question.
+- "hintTranslation" must exactly match "hint".
 - "questionTranslation" must contain the English translation of "question".
 - Do not put the English translation in "question".
 - Do not put the learner-facing comprehension question in "question".

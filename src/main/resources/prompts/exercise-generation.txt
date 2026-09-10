@@ -29,7 +29,9 @@ Field rules:
 - If the type is MULTIPLE_CHOICE, "options" must contain exactly 4 answer choices.
 - If the type is not MULTIPLE_CHOICE, "options" must be an empty array.
 - "expectedAnswer" must contain the correct answer.
+- "hint" must be written in English.
 - "hint" must briefly help the learner without giving away the answer.
+- Do not write "hint" in Luxembourgish.
 
 JSON rules:
 - Return only the JSON object.
