@@ -11,6 +11,7 @@ public final class AppConstants {
         public static final String GROQ = "groqRestClient";
         public static final String TTS = "ttsRestClient";
         public static final String GEOPORTAIL = "geoportailRestClient";
+        public static final String RESEND = "resendRestClient";
 
         private RestClientBeans() {
         }
@@ -24,6 +25,7 @@ public final class AppConstants {
         public static final String ELEVENLABS = "elevenlabs";
         public static final String GROQ = "groq";
         public static final String GEOPORTAIL = "geoportail";
+        public static final String RESEND = "resend";
 
         private Providers() {
         }
@@ -108,6 +110,7 @@ public final class AppConstants {
     public static final class ApiPaths {
         public static final String GROQ_AUDIO_TRANSCRIPTIONS = "/audio/transcriptions";
         public static final String ELEVENLABS_TEXT_TO_SPEECH = "/text-to-speech/";
+        public static final String RESEND_EMAILS = "/emails";
 
         private ApiPaths() {
         }
@@ -171,7 +174,9 @@ public final class AppConstants {
         public static final String LUXEMBOURG_GEOPORTAIL_MAX_LIMIT = "${luxembourg.geoportail.max-limit}";
         public static final String OUTBOUND_API_ENABLED = "${observability.outbound-api.enabled:true}";
         public static final String OUTBOUND_API_SLOW_THRESHOLD_MS = "${observability.outbound-api.slow-threshold-ms:10000}";
-        public static final String SPRING_MAIL_USERNAME = "${spring.mail.username}";
+        public static final String EMAIL_FROM = "${email.from:}";
+        public static final String EMAIL_RESEND_API_KEY = "${email.resend.api-key:}";
+        public static final String EMAIL_RESEND_BASE_URL = "${email.resend.base-url}";
         public static final String SECURITY_OTP_EXPIRATION_MS = "${security.otp.expiration-ms}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";

@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +26,7 @@ public class EmailAndOtpService {
 
     private final OtpRepo otpRepo;
     private final AppUserRepo appUserRepo;
-    private final JavaMailSender mailSender;
-    @Value(AppConstants.PropertyPlaceholders.SPRING_MAIL_USERNAME)
-    private String from;
+    private final EmailSender emailSender;
     @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_EXPIRATION_MS)
     private long expirationOtp;
 
@@ -54,12 +50,8 @@ public class EmailAndOtpService {
 
         long expirationMinutes = expirationOtp / 60_000;
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setFrom(from);
-        message.setSubject("SproochenCoach - Email Verification");
-
-        message.setText("""
+        String subject = "SproochenCoach - Email Verification";
+        String text = """
                 Hello,
                 
                 Thank you for registering with SproochenCoach!
@@ -82,10 +74,10 @@ public class EmailAndOtpService {
                         randomOtp,
                         expirationMinutes,
                         expirationMinutes == 1 ? "" : "s"
-                ));
+                );
 
         try {
-            mailSender.send(message);
+            emailSender.send(to, subject, text);
         } catch (RuntimeException exception) {
             log.error("Failed to send verification OTP email for user id {}", user.getId(), exception);
             throw exception;
@@ -152,12 +144,8 @@ public class EmailAndOtpService {
 
         long expirationMinutes = expirationOtp / 60_000;
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(email);
-        message.setFrom(from);
-        message.setSubject("SproochenCoach - New Verification Code");
-
-        message.setText("""
+        String subject = "SproochenCoach - New Verification Code";
+        String text = """
             Hello,
 
             You requested a new verification code for SproochenCoach.
@@ -182,10 +170,10 @@ public class EmailAndOtpService {
                         randomOtp,
                         expirationMinutes,
                         expirationMinutes == 1 ? "" : "s"
-                ));
+                );
 
         try {
-            mailSender.send(message);
+            emailSender.send(email, subject, text);
         } catch (RuntimeException exception) {
             log.error("Failed to send OTP resend email for user id {}", user.getId(), exception);
             throw exception;

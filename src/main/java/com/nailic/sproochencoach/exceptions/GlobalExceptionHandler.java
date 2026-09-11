@@ -29,6 +29,8 @@ public class GlobalExceptionHandler {
             "We could not load location suggestions right now. Please try again.";
     private static final String PAYMENT_UNAVAILABLE_MESSAGE =
             "We could not complete the payment action right now. Please try again.";
+    private static final String EMAIL_UNAVAILABLE_MESSAGE =
+            "We could not send the verification email right now. Please try again.";
     private static final String UNAUTHORIZED_MESSAGE = "Please log in and try again.";
     private static final String UNEXPECTED_ERROR_MESSAGE =
             "Something went wrong. Please try again.";
@@ -176,6 +178,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(exception.getStatusCode())
                 .body(error(paymentMessage(exception)));
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmailDeliveryException(
+            EmailDeliveryException exception
+    ) {
+        log.error("Handling EmailDeliveryException. statusCode={}, message={}", exception.getStatusCode(), exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(error(EMAIL_UNAVAILABLE_MESSAGE));
     }
 
     @ExceptionHandler({
