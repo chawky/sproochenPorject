@@ -1,0 +1,23 @@
+services:
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+    ports: !reset [] # In production, users should reach the backend through Nginx, not directly through port 8080.
+    # Nginx becomes the public entry point.
+    # The backend still listens on port 8080 inside the Docker network,
+    # but it is not exposed directly to the outside world.
+
+    depends_on: !reset [] # Remove dependency on local MySQL because production uses a managed MySQL database.
+
+    env_file: !reset [] # Do not load the local .env file in production.
+    # Production secrets and environment variables should come from the hosting platform.
+
+  mysql:
+    profiles:
+      - local-db # Keep the local MySQL service available for local development only.
+      #means Do not start this MySQL container unless I explicitly enable the Compose profile local-db
+#1. Use Spring profile: prod
+## 2. Do NOT expose backend port 8080 publicly
+#  3. Do NOT start the local MySQL container
+#4. Do NOT use the local .env file
