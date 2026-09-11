@@ -13,4 +13,6 @@ public interface ExerciseAttemptRepo extends JpaRepository<ExerciseAttempt, Long
     List<ExerciseAttempt> findAllByUser_IdOrderByIdDesc(Integer userId);
 
     Page<ExerciseAttempt> findByUser_Id(Integer userId, Pageable pageable);
+
+    void deleteByUser_Id(Integer userId);
 }

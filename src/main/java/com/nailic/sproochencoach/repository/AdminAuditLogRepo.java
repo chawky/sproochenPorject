@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AdminAuditLogRepo extends JpaRepository<AdminAuditLog, Long>, JpaSpecificationExecutor<AdminAuditLog> {
+    void deleteByActorUserIdOrTargetUserId(Integer actorUserId, Integer targetUserId);
 }

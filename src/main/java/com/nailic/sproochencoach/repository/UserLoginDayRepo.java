@@ -12,4 +12,6 @@ public interface UserLoginDayRepo extends JpaRepository<UserLoginDay, Long> {
     boolean existsByUser_IdAndLoginDate(Integer userId, LocalDate loginDate);
 
     List<UserLoginDay> findAllByUser_IdOrderByLoginDateDesc(Integer userId);
+
+    void deleteByUser_Id(Integer userId);
 }

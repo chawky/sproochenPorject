@@ -14,4 +14,6 @@ public interface AiUsageRepo extends JpaRepository<AiUsage, Long>, JpaSpecificat
     Page<AiUsage> findByUserId(Integer userId, Pageable pageable);
 
     List<AiUsage> findAllByUserId(Integer userId);
+
+    void deleteByUserId(Integer userId);
 }

@@ -13,4 +13,6 @@ public interface UserProgressRepo extends JpaRepository<UserProgress,Long> {
     List<UserProgress> findAllByUser_IdOrderByIdDesc(Integer userId);
 
     Page<UserProgress> findByUser_Id(Integer userId, Pageable pageable);
+
+    void deleteByUser_Id(Integer userId);
 }

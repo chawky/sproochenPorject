@@ -94,15 +94,15 @@ public class AdminController {
     }
 
     @DeleteMapping("/users/{id}")
-    public ResponseEntity<ApiResponse<Void>> anonymizeUser(
+    public ResponseEntity<ApiResponse<Void>> deleteUser(
             @PathVariable Integer id
     ) {
-        adminService.anonymizeUser(id);
+        adminService.deleteUser(id);
 
         return ResponseEntity.ok(
                 new ApiResponse<>(
                         true,
-                        "User anonymized successfully",
+                        "User deleted successfully",
                         null
                 )
         );
