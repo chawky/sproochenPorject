@@ -24,10 +24,12 @@ import com.nailic.sproochencoach.model.SubscriptionPlan;
 import com.nailic.sproochencoach.model.ExerciseAttempt;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
+import com.nailic.sproochencoach.repository.OtpRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,6 +38,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +46,8 @@ public class AdminService {
     private final AppUserService appUserService;
     private final AppUserRepo appUserRepo;
     private final ExerciseAttemptRepo exerciseAttemptRepo;
+    private final OtpRepo otpRepo;
+    private final PasswordEncoder passwordEncoder;
     private final UserProgressService userProgressService;
     private final LoggedInUser loggedInUser;
     private final SubscriptionAccessService subscriptionAccessService;
@@ -117,6 +122,46 @@ public class AdminService {
         }
 
         return getUser(id);
+    }
+
+    @Transactional
+    public void anonymizeUser(Integer id) {
+        if (id.equals(loggedInUser.getId())) {
+            throw new BadRequestException("Admins cannot anonymize their own account");
+        }
+
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        String oldValue = "email=" + maskEmail(user.getEmail()) + ", username=" + safeValue(user.getUsername());
+        String anonymizedUsername = "deleted-user-" + user.getId() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        String anonymizedEmail = anonymizedUsername + "@deleted.sproochencoach.local";
+
+        otpRepo.deleteByUser(user);
+        user.getRoles().clear();
+        user.setAdminDisabled(true);
+        user.setEnabled(false);
+        user.setUsername(anonymizedUsername);
+        user.setEmail(anonymizedEmail);
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setFirstName(null);
+        user.setLastName(null);
+        user.setStreet(null);
+        user.setStreetNumber(null);
+        user.setPostalCode(null);
+        user.setCity(null);
+        user.setAddressInfo(null);
+
+        appUserRepo.save(user);
+        adminAuditService.recordAction(
+                loggedInUser.getId(),
+                id,
+                "USER",
+                id.toString(),
+                "USER_ANONYMIZED",
+                oldValue,
+                "email=<anonymized>, username=" + anonymizedUsername,
+                null
+        );
     }
 
     public PageResponseDto<AdminAuditLogDto> getAuditLogs(
@@ -283,6 +328,27 @@ public class AdminService {
     private boolean hasSubscriptionAccess(SubscriptionPlan subscriptionPlan) {
         return subscriptionPlan != null
                 && subscriptionAccessService.hasSubscriptionAccess(subscriptionPlan.getSubscriptionStatus());
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "<blank>";
+        }
+
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) {
+            return "***";
+        }
+
+        return email.charAt(0) + "***" + email.substring(atIndex);
+    }
+
+    private String safeValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "<blank>";
+        }
+
+        return value.strip();
     }
 
     private int pageStartIndex(int page, int size, int totalItems) {

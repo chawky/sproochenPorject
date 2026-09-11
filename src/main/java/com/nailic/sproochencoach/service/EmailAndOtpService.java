@@ -40,13 +40,7 @@ public class EmailAndOtpService {
         int randomOtp = ThreadLocalRandom.current()
                 .nextInt(100000, 1_000_000);
 
-        Otp otp = new Otp();
-        otp.setAttempts(0);
-        otp.setUser(user);
-        otp.setOtp(randomOtp);
-        otp.setOtpCreationDate(LocalDateTime.now());
-
-        otpRepo.save(otp);
+        saveOtp(user, randomOtp);
 
         long expirationMinutes = expirationOtp / 60_000;
 
@@ -128,19 +122,10 @@ public class EmailAndOtpService {
             throw new UsernameNotFoundException("User not found");
         }
 
-        Otp otp = otpRepo.findByUser(user)
-                .orElseThrow(() ->
-                        new IllegalStateException("OTP not found")
-                );
-
         int randomOtp = ThreadLocalRandom.current()
                 .nextInt(100000, 1_000_000);
 
-        otp.setOtp(randomOtp);
-        otp.setAttempts(0);
-        otp.setOtpCreationDate(LocalDateTime.now());
-
-        otpRepo.save(otp);
+        saveOtp(user, randomOtp);
 
         long expirationMinutes = expirationOtp / 60_000;
 
@@ -191,5 +176,15 @@ public class EmailAndOtpService {
         }
 
         return email.charAt(0) + "***" + email.substring(atIndex);
+    }
+
+    private void saveOtp(AppUser user, int otpCode) {
+        Otp otp = otpRepo.findByUser(user).orElseGet(Otp::new);
+        otp.setAttempts(0);
+        otp.setUser(user);
+        otp.setOtp(otpCode);
+        otp.setOtpCreationDate(LocalDateTime.now());
+
+        otpRepo.save(otp);
     }
 }

@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.RequestUserDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
 import com.nailic.sproochencoach.dto.SubscriptionInfoDto;
+import com.nailic.sproochencoach.exceptions.EmailNotVerifiedException;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -106,8 +108,15 @@ public class AppUserService {
     }
 
     public ResponseUserDto login(RequestUserDto appUserDto) {
-        Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
+        Authentication authentication;
+        try {
+            authentication = authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
+        } catch (DisabledException exception) {
+            log.warn("Login rejected because email is not verified: {}", maskEmail(appUserDto.getEmail()));
+            throw new EmailNotVerifiedException("Email not verified. Please verify your email.");
+        }
+
         AppUser user = (AppUser) authentication.getPrincipal();
         userLoginDayService.recordLogin(user);
 

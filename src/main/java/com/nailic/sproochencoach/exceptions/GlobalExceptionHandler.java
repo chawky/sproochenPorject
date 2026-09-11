@@ -96,6 +96,13 @@ public class GlobalExceptionHandler {
                 .body(error(UNAUTHORIZED_MESSAGE));
     }
 
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmailNotVerifiedException(EmailNotVerifiedException exception) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(error(exception.getMessage()));
+    }
+
     @ExceptionHandler(AiQuotaExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleAiQuotaExceeded(AiQuotaExceededException exception) {
         return ResponseEntity

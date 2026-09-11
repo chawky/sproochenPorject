@@ -93,6 +93,21 @@ public class AdminController {
         );
     }
 
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<ApiResponse<Void>> anonymizeUser(
+            @PathVariable Integer id
+    ) {
+        adminService.anonymizeUser(id);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "User anonymized successfully",
+                        null
+                )
+        );
+    }
+
     @GetMapping("/users/{id}/progress")
     public ResponseEntity<ApiResponse<PageResponseDto<AdminUserProgressDto>>> getUserProgress(
             @PathVariable Integer id,

@@ -12,4 +12,6 @@ public interface OtpRepo extends JpaRepository<Otp, Long> {
     Otp findByOtp(int otp);
 
     Optional<Otp> findByUser(AppUser user);
+
+    void deleteByUser(AppUser user);
 }
