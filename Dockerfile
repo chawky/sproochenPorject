@@ -16,6 +16,10 @@ RUN mvn clean package -DskipTests
 
 # Runtime stage: only Java is needed here
 FROM eclipse-temurin:17-jre
+
+RUN apt-get update \
+    && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy the JAR from the first stage into this stage

@@ -20,7 +20,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Arrays;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -175,14 +174,11 @@ public class AiQuotaService {
     }
 
     private String errorMessage(UserPlanTier tier, AiQuotaCategory category, String windowName) {
-        String readableCategory = category.name().toLowerCase(Locale.ROOT);
-        String readableWindow = windowName.substring(0, 1).toUpperCase(Locale.ROOT) + windowName.substring(1);
-
-        if (tier == UserPlanTier.PREMIUM) {
-            return readableWindow + " premium AI limit reached for " + readableCategory;
+        if ("monthly".equals(windowName)) {
+            return "You have reached this month's practice limit. Please try again later.";
         }
 
-        return readableWindow + " AI limit reached for " + readableCategory;
+        return "You have reached today's practice limit. Please try again tomorrow.";
     }
 
     private record QuotaWindow(

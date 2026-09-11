@@ -3,7 +3,8 @@ services:
     build:
       context: ../sproochenFE/luxembourgish-exam-ai-coach
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "4200:80"
   # service name is mysql
@@ -29,7 +30,7 @@ services:
     ports:
       - "8080:8080" #"HOST_PORT:CONTAINER_PORT"  : When my PC receives something on port 8080, forward it to port 8080 inside this container.
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -38,6 +39,8 @@ services:
       condition: service_healthy
     env_file:
       - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
 volumes:
   #mysql-data  : the : means use default config
   mysql-data:

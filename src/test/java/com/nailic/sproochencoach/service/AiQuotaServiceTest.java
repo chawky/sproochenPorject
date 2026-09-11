@@ -56,7 +56,7 @@ class AiQuotaServiceTest {
 
         assertThatThrownBy(() -> service.checkCurrentUserQuota(AiQuotaCategory.CHAT))
                 .isInstanceOf(AiQuotaExceededException.class)
-                .hasMessage("Daily AI limit reached for chat");
+                .hasMessage("You have reached today's practice limit. Please try again tomorrow.");
     }
 
     @Test
