@@ -22,4 +22,8 @@ public class AdminAuditLogDto {
     private String newValue;
     private String reason;
     private LocalDateTime createdAt;
+    private String actorLabel;
+    private String targetLabel;
+    private String actionLabel;
+    private String changeSummary;
 }
