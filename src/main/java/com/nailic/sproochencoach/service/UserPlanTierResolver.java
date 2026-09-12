@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
@@ -24,6 +25,10 @@ public class UserPlanTierResolver {
     }
 
     public UserPlanTier resolve(AppUser user) {
+        if (user.getRoles().stream().anyMatch(role -> AppConstants.Roles.ADMIN.equals(role.getName()))) {
+            return UserPlanTier.PREMIUM;
+        }
+
         SubscriptionPlan subscriptionPlan = user.getSubscriptionPlan();
         if (subscriptionPlan != null
                 && subscriptionAccessService.hasSubscriptionAccess(subscriptionPlan.getSubscriptionStatus())) {

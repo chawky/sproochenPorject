@@ -1,5 +1,7 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.constants.AppConstants;
+import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
 import com.nailic.sproochencoach.repository.AppUserRepo;
@@ -30,6 +32,17 @@ class UserPlanTierResolverTest {
     void trialingSubscriptionResolvesPremium() {
         UserPlanTierResolver resolver = resolver();
         AppUser user = userWithSubscriptionStatus("trialing");
+
+        assertThat(resolver.resolve(user)).isEqualTo(UserPlanTier.PREMIUM);
+    }
+
+    @Test
+    void adminRoleResolvesPremium() {
+        UserPlanTierResolver resolver = resolver();
+        AppRole adminRole = new AppRole();
+        adminRole.setName(AppConstants.Roles.ADMIN);
+        AppUser user = new AppUser();
+        user.getRoles().add(adminRole);
 
         assertThat(resolver.resolve(user)).isEqualTo(UserPlanTier.PREMIUM);
     }

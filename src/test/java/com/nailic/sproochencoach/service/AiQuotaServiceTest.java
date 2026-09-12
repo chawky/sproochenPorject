@@ -127,7 +127,7 @@ class AiQuotaServiceTest {
         properties.getBasic().getChat().setDailyLimit(20);
         properties.getBasic().getTts().setDailyLimit(5);
         properties.getBasic().getStt().setDailyLimit(5);
-        properties.getBasic().getImage().setDailyLimit(0);
+        properties.getBasic().getImage().setDailyLimit(5);
         properties.getPremium().getChat().setMonthlyLimit(300);
         properties.getPremium().getTts().setMonthlyLimit(75);
         properties.getPremium().getStt().setMonthlyLimit(75);
