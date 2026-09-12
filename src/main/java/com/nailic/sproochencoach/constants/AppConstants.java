@@ -178,6 +178,9 @@ public final class AppConstants {
         public static final String EMAIL_RESEND_API_KEY = "${email.resend.api-key:}";
         public static final String EMAIL_RESEND_BASE_URL = "${email.resend.base-url}";
         public static final String SECURITY_OTP_EXPIRATION_MS = "${security.otp.expiration-ms}";
+        public static final String SECURITY_OTP_RESEND_COOLDOWN_MS = "${security.otp.resend-cooldown-ms}";
+        public static final String SECURITY_OTP_MAX_REQUESTS_PER_HOUR = "${security.otp.max-requests-per-hour}";
+        public static final String SECURITY_OTP_MAX_IP_REQUESTS_PER_HOUR = "${security.otp.max-ip-requests-per-hour}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";

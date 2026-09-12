@@ -89,7 +89,12 @@ public class AppUserService {
             throw new UserAlreadyExistsException("Email already exists");
         }
 
+        boolean emailChanged = request.getEmail() != null && !request.getEmail().equals(user.getEmail());
+
         updateUserFields(request, user);
+        if (emailChanged) {
+            user.setEnabled(false);
+        }
 
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));

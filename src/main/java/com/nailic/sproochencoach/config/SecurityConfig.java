@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.config;
 
 import com.nailic.sproochencoach.service.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,6 +30,9 @@ import java.util.List;
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${security.cors.allowed-origins:http://localhost:4200}")
+    private List<String> allowedOrigins;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -51,8 +55,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/actuator/**",
                                 "/swagger-ui.html")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/users/locations")
@@ -77,9 +82,12 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of("*"));
-        config.setAllowedMethods(List.of("*"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedOrigins(allowedOrigins.stream()
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList());
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =

@@ -226,7 +226,7 @@ Recommended MVP defaults:
 - `BASIC`: 20 chat generations per day.
 - `BASIC`: 5 audio generations per day.
 - `BASIC`: 5 STT evaluations per day.
-- `BASIC`: 0 or 2 image generations per day.
+- `BASIC`: 5 image generations per day.
 - `PREMIUM`: 300 chat generations per month.
 - `PREMIUM`: 75 audio generations per month.
 - `PREMIUM`: 75 STT evaluations per month.
@@ -264,7 +264,7 @@ Example properties:
 - `ai.quota.basic.chat.daily-limit=20`
 - `ai.quota.basic.tts.daily-limit=5`
 - `ai.quota.basic.stt.daily-limit=5`
-- `ai.quota.basic.image.daily-limit=0`
+- `ai.quota.basic.image.daily-limit=5`
 - `ai.quota.premium.chat.monthly-limit=300`
 - `ai.quota.premium.tts.monthly-limit=75`
 - `ai.quota.premium.stt.monthly-limit=75`
@@ -317,7 +317,10 @@ Implemented:
 
 Still To Do:
 
-- Add quota reservations only if concurrent overage becomes a real abuse/cost problem.
+- Add atomic quota reservations/counters before public scale if concurrent overage becomes a real abuse/cost problem.
+- Current race: concurrent requests can all pass `count usage -> allow` before any request records successful usage.
+- Preferred future design: reserve quota before provider calls using a DB atomic update/insert with a unique user-category-window counter, or Redis `INCR` with TTL for quota windows.
+- Release or mark failed reservations when provider calls fail, unless product policy changes to count attempted provider calls.
 
 #### Phase 5: Add Quota Checks Before Provider Calls
 

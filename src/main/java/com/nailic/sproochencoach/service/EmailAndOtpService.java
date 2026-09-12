@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.VerifyOtpRequest;
+import com.nailic.sproochencoach.exceptions.OtpRateLimitExceededException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.Otp;
 import com.nailic.sproochencoach.repository.AppUserRepo;
@@ -10,12 +11,17 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -27,10 +33,24 @@ public class EmailAndOtpService {
     private final OtpRepo otpRepo;
     private final AppUserRepo appUserRepo;
     private final EmailSender emailSender;
+    private final Clock clock;
+    private final ConcurrentMap<String, OtpRequestHistory> emailRequestHistories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, OtpRequestHistory> ipRequestHistories = new ConcurrentHashMap<>();
     @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_EXPIRATION_MS)
     private long expirationOtp;
+    @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_RESEND_COOLDOWN_MS)
+    private long resendCooldownMs;
+    @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_MAX_REQUESTS_PER_HOUR)
+    private int maxRequestsPerHour;
+    @Value(AppConstants.PropertyPlaceholders.SECURITY_OTP_MAX_IP_REQUESTS_PER_HOUR)
+    private int maxIpRequestsPerHour;
 
     public void sendEmailAndSaveOtp(String to) {
+        sendEmailAndSaveOtp(to, null);
+    }
+
+    public void sendEmailAndSaveOtp(String to, String clientIp) {
+        enforceOtpRateLimit(to, clientIp);
         AppUser user = appUserRepo.findByEmail(to).orElse(null);
 
         if (user == null) {
@@ -115,11 +135,15 @@ public class EmailAndOtpService {
     }
 
     public void resendEmailAndSaveOtp(String email) {
+        resendEmailAndSaveOtp(email, null);
+    }
+
+    public void resendEmailAndSaveOtp(String email, String clientIp) {
+        enforceOtpRateLimit(email, clientIp);
         AppUser user = appUserRepo.findByEmail(email).orElse(null);
 
         if (user == null) {
-            log.warn("OTP resend failed because user does not exist: {}", maskEmail(email));
-            throw new UsernameNotFoundException("User not found");
+            return;
         }
 
         int randomOtp = ThreadLocalRandom.current()
@@ -178,6 +202,56 @@ public class EmailAndOtpService {
         return email.charAt(0) + "***" + email.substring(atIndex);
     }
 
+    private void enforceOtpRateLimit(String email, String clientIp) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        enforceIpRateLimit(clientIp, now);
+        enforceEmailRateLimit(email, now);
+    }
+
+    private void enforceEmailRateLimit(String email, LocalDateTime now) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail.isBlank()) {
+            return;
+        }
+
+        OtpRequestHistory history = emailRequestHistories.computeIfAbsent(
+                normalizedEmail,
+                ignored -> new OtpRequestHistory()
+        );
+        if (!history.tryRecord(now, Duration.ofMillis(resendCooldownMs), maxRequestsPerHour)) {
+            log.warn("OTP request rate limited for email {}", maskEmail(normalizedEmail));
+            throw new OtpRateLimitExceededException("OTP request rate limit exceeded");
+        }
+    }
+
+    private void enforceIpRateLimit(String clientIp, LocalDateTime now) {
+        String normalizedClientIp = normalizeClientIp(clientIp);
+        if (normalizedClientIp.isBlank()) {
+            return;
+        }
+
+        OtpRequestHistory history = ipRequestHistories.computeIfAbsent(
+                normalizedClientIp,
+                ignored -> new OtpRequestHistory()
+        );
+        if (!history.tryRecord(now, Duration.ZERO, maxIpRequestsPerHour)) {
+            log.warn("OTP request rate limited for client IP");
+            throw new OtpRateLimitExceededException("OTP request rate limit exceeded");
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null
+                ? ""
+                : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeClientIp(String clientIp) {
+        return clientIp == null
+                ? ""
+                : clientIp.trim();
+    }
+
     private void saveOtp(AppUser user, int otpCode) {
         Otp otp = otpRepo.findByUser(user).orElseGet(Otp::new);
         otp.setAttempts(0);
@@ -186,5 +260,32 @@ public class EmailAndOtpService {
         otp.setOtpCreationDate(LocalDateTime.now());
 
         otpRepo.save(otp);
+    }
+
+    private static final class OtpRequestHistory {
+        private final Deque<LocalDateTime> requestTimes = new ArrayDeque<>();
+
+        private synchronized boolean tryRecord(
+                LocalDateTime now,
+                Duration cooldown,
+                int maxRequestsPerHour
+        ) {
+            LocalDateTime hourlyWindowStart = now.minusHours(1);
+            while (!requestTimes.isEmpty() && requestTimes.peekFirst().isBefore(hourlyWindowStart)) {
+                requestTimes.removeFirst();
+            }
+
+            LocalDateTime lastRequestTime = requestTimes.peekLast();
+            if (lastRequestTime != null && Duration.between(lastRequestTime, now).compareTo(cooldown) < 0) {
+                return false;
+            }
+
+            if (requestTimes.size() >= maxRequestsPerHour) {
+                return false;
+            }
+
+            requestTimes.addLast(now);
+            return true;
+        }
     }
 }

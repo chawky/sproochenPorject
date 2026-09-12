@@ -6,6 +6,7 @@ import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ public class AppUserController {
     private final EmailAndOtpService emailAndOtpService;
     private final LuxembourgLocationService luxembourgLocationService;
     private final AiQuotaService aiQuotaService;
+    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -108,6 +110,23 @@ public class AppUserController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> updateMe(
+            Authentication authentication,
+            @Valid @RequestBody RequestUserDto request
+    ) {
+        AppUser user = (AppUser) authentication.getPrincipal();
+        ResponseUserDto updatedUser = appUserService.updateUser(user.getId(), request);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Current user updated successfully",
+                        updatedUser
+                )
+        );
+    }
+
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<ResponseUserDto>> login(
             @Valid @RequestBody RequestUserDto request
@@ -154,9 +173,10 @@ public class AppUserController {
 
     @PostMapping("/sendOtp")
     public ResponseEntity<ApiResponse<Void>> sendOtp(
-            @Valid @RequestBody SendOtpRequest request
+            @Valid @RequestBody SendOtpRequest request,
+            HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail());
+        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail(), clientIp(httpServletRequest));
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -169,9 +189,10 @@ public class AppUserController {
 
     @PostMapping("/resendOtp")
     public ResponseEntity<ApiResponse<Void>> resendOtp(
-            @Valid @RequestBody SendOtpRequest request
+            @Valid @RequestBody SendOtpRequest request,
+            HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail());
+        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail(), clientIp(httpServletRequest));
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -207,5 +228,14 @@ public class AppUserController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader(X_FORWARDED_FOR);
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+
+        return request.getRemoteAddr();
     }
 }

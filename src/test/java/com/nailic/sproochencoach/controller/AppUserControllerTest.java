@@ -1,0 +1,94 @@
+package com.nailic.sproochencoach.controller;
+
+import com.nailic.sproochencoach.dto.RequestUserDto;
+import com.nailic.sproochencoach.dto.ResponseUserDto;
+import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.service.AiQuotaService;
+import com.nailic.sproochencoach.service.AppUserService;
+import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.LuxembourgLocationService;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class AppUserControllerTest {
+    @Test
+    void updateMeUsesAuthenticatedUserId() throws Exception {
+        AppUserService appUserService = mock(AppUserService.class);
+        AppUser authenticatedUser = new AppUser();
+        authenticatedUser.setId(42);
+
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getPrincipal()).thenReturn(authenticatedUser);
+
+        ResponseUserDto responseUser = new ResponseUserDto();
+        responseUser.setId(42);
+        responseUser.setFirstName("Sam");
+        when(appUserService.updateUser(eq(42), any(RequestUserDto.class))).thenReturn(responseUser);
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        appUserService,
+                        mock(EmailAndOtpService.class),
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class)
+                ))
+                .build();
+
+        mockMvc.perform(put("/api/users/me")
+                        .principal(authentication)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName": "Sam"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Current user updated successfully"))
+                .andExpect(jsonPath("$.data.id").value(42))
+                .andExpect(jsonPath("$.data.firstName").value("Sam"));
+
+        verify(appUserService).updateUser(eq(42), any(RequestUserDto.class));
+    }
+
+    @Test
+    void sendOtpUsesForwardedClientIp() throws Exception {
+        EmailAndOtpService emailAndOtpService = mock(EmailAndOtpService.class);
+        doNothing().when(emailAndOtpService).sendEmailAndSaveOtp("learner@example.com", "203.0.113.10");
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        mock(AppUserService.class),
+                        emailAndOtpService,
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class)
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/users/sendOtp")
+                        .header("X-Forwarded-For", "203.0.113.10, 10.0.0.5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "learner@example.com"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(emailAndOtpService).sendEmailAndSaveOtp("learner@example.com", "203.0.113.10");
+    }
+}

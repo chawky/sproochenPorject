@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.model.AppUser;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -53,18 +55,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     String email;
     try {
       email = jwtService.extractUsername(jwt);
-    } catch (RuntimeException exception) {
-      log.warn("Failed to extract JWT subject");
-      throw exception;
+    } catch (JwtException | IllegalArgumentException exception) {
+      log.warn("Ignoring invalid JWT. reason={}", exception.getClass().getSimpleName());
+      filterChain.doFilter(request, response);
+      return;
     }
 
     if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      AppUser user = customUserDetailsService.loadUserByUsername(email);
-      if (jwtService.isTokenValid(jwt, email, user)) {
-        UsernamePasswordAuthenticationToken authenticationToken =
-            new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-        authenticationToken.setDetails(new WebAuthenticationDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+      try {
+        AppUser user = customUserDetailsService.loadUserByUsername(email);
+        if (jwtService.isTokenValid(jwt, email, user)) {
+          UsernamePasswordAuthenticationToken authenticationToken =
+              new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+          authenticationToken.setDetails(new WebAuthenticationDetails(request));
+          SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+        }
+      } catch (JwtException | IllegalArgumentException | UsernameNotFoundException exception) {
+        log.warn("Ignoring JWT that could not authenticate a user. reason={}", exception.getClass().getSimpleName());
       }
     }
 
