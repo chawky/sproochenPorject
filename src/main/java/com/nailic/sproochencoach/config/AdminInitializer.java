@@ -12,6 +12,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class AdminInitializer implements CommandLineRunner {
@@ -19,21 +21,24 @@ public class AdminInitializer implements CommandLineRunner {
     private final AppUserRepo userRepo;
     private final RoleRepo roleRepo;
 
-    @Value(AppConstants.PropertyPlaceholders.APP_ADMIN_EMAIL)
-    private String adminEmail;
+    @Value(AppConstants.PropertyPlaceholders.APP_ADMIN_EMAILS)
+    private List<String> adminEmails;
 
     @Override
     @Transactional
     public void run(String... args) {
 
-        if (adminEmail == null || adminEmail.isBlank()) {
+        if (adminEmails == null) {
             return;
         }
 
-        AppUser user = userRepo.findByEmail(adminEmail)
-                .orElse(null);
+        List<String> emails = adminEmails.stream()
+                .map(String::trim)
+                .filter(email -> !email.isBlank())
+                .distinct()
+                .toList();
 
-        if (user == null) {
+        if (emails.isEmpty()) {
             return;
         }
 
@@ -41,7 +46,10 @@ public class AdminInitializer implements CommandLineRunner {
         if (adminRole == null) {
             throw new IllegalStateException("ADMIN role does not exist");
         }
-        user.getRoles().add(adminRole);
-        userRepo.save(user);
+
+        emails.forEach(email -> userRepo.findByEmail(email).ifPresent(user -> {
+            user.getRoles().add(adminRole);
+            userRepo.save(user);
+        }));
     }
 }

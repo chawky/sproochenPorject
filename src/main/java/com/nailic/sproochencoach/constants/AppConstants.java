@@ -199,7 +199,7 @@ public final class AppConstants {
         public static final String STRIPE_SUCCESS_URL = "${stripe.success-url}";
         public static final String STRIPE_CANCEL_URL = "${stripe.cancel-url}";
         public static final String STRIPE_WEBHOOK_SECRET = "${stripe.webhook-secret}";
-        public static final String APP_ADMIN_EMAIL = "${app.admin.email:}";
+        public static final String APP_ADMIN_EMAILS = "${app.admin.emails:${app.admin.email:}}";
 
         private PropertyPlaceholders() {
         }
