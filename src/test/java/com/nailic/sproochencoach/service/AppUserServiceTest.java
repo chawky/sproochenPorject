@@ -56,6 +56,31 @@ class AppUserServiceTest {
     }
 
     @Test
+    void updateUserBumpsTokenVersionWhenPasswordChanges() {
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        AppUser user = verifiedUser();
+        RequestUserDto request = new RequestUserDto();
+        request.setPassword("new-password");
+
+        when(appUserRepo.findById(42)).thenReturn(Optional.of(user));
+        when(appUserRepo.save(any(AppUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(passwordEncoder.encode("new-password")).thenReturn("encoded-password");
+
+        AppUserService service = service(
+                appUserRepo,
+                mock(AuthenticationManager.class),
+                mock(LoginRateLimitService.class),
+                passwordEncoder
+        );
+
+        service.updateUser(42, request);
+
+        assertThat(user.getPassword()).isEqualTo("encoded-password");
+        assertThat(user.getTokenVersion()).isEqualTo(1);
+    }
+
+    @Test
     void loginRecordsFailedAuthenticationForRateLimiting() {
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
         LoginRateLimitService loginRateLimitService = mock(LoginRateLimitService.class);
@@ -100,10 +125,24 @@ class AppUserServiceTest {
             AuthenticationManager authenticationManager,
             LoginRateLimitService loginRateLimitService
     ) {
+        return service(
+                appUserRepo,
+                authenticationManager,
+                loginRateLimitService,
+                mock(PasswordEncoder.class)
+        );
+    }
+
+    private AppUserService service(
+            AppUserRepo appUserRepo,
+            AuthenticationManager authenticationManager,
+            LoginRateLimitService loginRateLimitService,
+            PasswordEncoder passwordEncoder
+    ) {
         return new AppUserService(
                 appUserRepo,
                 mock(RoleRepo.class),
-                mock(PasswordEncoder.class),
+                passwordEncoder,
                 mock(JwtService.class),
                 mock(EmailAndOtpService.class),
                 authenticationManager,

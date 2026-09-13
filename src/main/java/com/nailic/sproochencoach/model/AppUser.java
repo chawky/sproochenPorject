@@ -39,6 +39,8 @@ public class AppUser extends BaseModel implements UserDetails {
   private boolean enabled = false;
   @Column(nullable = false)
   private boolean adminDisabled = false;
+  @Column(nullable = false, columnDefinition = "int default 0")
+  private int tokenVersion = 0;
   @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
       name = "app_user_roles",

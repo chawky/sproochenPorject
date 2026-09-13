@@ -100,6 +100,7 @@ public class AppUserService {
 
         if (request.getPassword() != null && !request.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setTokenVersion(user.getTokenVersion() + 1);
         }
 
         AppUser savedUser = appUserRepo.save(user);

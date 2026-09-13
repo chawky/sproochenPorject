@@ -28,6 +28,7 @@ public class JwtService {
 
   public String generateToken(AppUser user) {
     return Jwts.builder()
+        .claim("tokenVersion", user.getTokenVersion())
         .signWith(getSigningKey())
         .subject(user.getEmail())
         .issuedAt(new Date())
@@ -67,6 +68,11 @@ public class JwtService {
       return false;
     }
     Claims claims = extractAllClaims(jwt);
+    Integer tokenVersion = claims.get("tokenVersion", Integer.class);
+    if (tokenVersion == null || tokenVersion != user.getTokenVersion()) {
+      log.warn("JWT validation failed because token version is stale. userId={}", user.getId());
+      return false;
+    }
     if (claims.getExpiration().before(new Date())) {
       log.warn("JWT validation failed because token is expired. userId={}", user.getId());
       return false;

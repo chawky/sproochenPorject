@@ -92,6 +92,7 @@ class PasswordResetServiceTest {
 
         assertThat(reset).isTrue();
         assertThat(passwordEncoder.matches("new-password", user.getPassword())).isTrue();
+        assertThat(user.getTokenVersion()).isEqualTo(1);
         verify(appUserRepo).save(user);
         verify(tokenRepo).delete(resetToken);
     }

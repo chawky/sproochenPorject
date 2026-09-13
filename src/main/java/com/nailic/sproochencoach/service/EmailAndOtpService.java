@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -22,13 +23,13 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class EmailAndOtpService {
     private static final Logger log = LoggerFactory.getLogger(EmailAndOtpService.class);
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final OtpRepo otpRepo;
     private final AppUserRepo appUserRepo;
@@ -57,8 +58,7 @@ public class EmailAndOtpService {
             return;
         }
 
-        int randomOtp = ThreadLocalRandom.current()
-                .nextInt(100000, 1_000_000);
+        int randomOtp = randomSixDigitCode();
 
         saveOtp(user, randomOtp);
 
@@ -117,7 +117,7 @@ public class EmailAndOtpService {
         LocalDateTime expirationTime =
                 otp.getOtpCreationDate()
                         .plus(Duration.ofMillis(expirationOtp));
-        if (LocalDateTime.now().isAfter(expirationTime)) {
+        if (LocalDateTime.now(clock).isAfter(expirationTime)) {
             log.warn("OTP verification failed because OTP expired for user id {}", user.getId());
             return false;
         }
@@ -146,8 +146,7 @@ public class EmailAndOtpService {
             return;
         }
 
-        int randomOtp = ThreadLocalRandom.current()
-                .nextInt(100000, 1_000_000);
+        int randomOtp = randomSixDigitCode();
 
         saveOtp(user, randomOtp);
 
@@ -257,9 +256,13 @@ public class EmailAndOtpService {
         otp.setAttempts(0);
         otp.setUser(user);
         otp.setOtp(otpCode);
-        otp.setOtpCreationDate(LocalDateTime.now());
+        otp.setOtpCreationDate(LocalDateTime.now(clock));
 
         otpRepo.save(otp);
+    }
+
+    private int randomSixDigitCode() {
+        return secureRandom.nextInt(900_000) + 100_000;
     }
 
     private static final class OtpRequestHistory {

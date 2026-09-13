@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -23,7 +24,6 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @Transactional
@@ -31,6 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class PasswordResetService {
     private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
     private static final int MAX_RESET_ATTEMPTS = 5;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final PasswordResetTokenRepo passwordResetTokenRepo;
     private final AppUserRepo appUserRepo;
@@ -56,7 +57,7 @@ public class PasswordResetService {
             return;
         }
 
-        String resetCode = "%06d".formatted(ThreadLocalRandom.current().nextInt(100000, 1_000_000));
+        String resetCode = randomSixDigitCode();
         saveResetToken(user, resetCode);
 
         long expirationMinutes = expirationMs / 60_000;
@@ -129,6 +130,7 @@ public class PasswordResetService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setTokenVersion(user.getTokenVersion() + 1);
         appUserRepo.save(user);
         passwordResetTokenRepo.delete(resetToken);
 
@@ -143,6 +145,10 @@ public class PasswordResetService {
         resetToken.setResetCreationDate(LocalDateTime.now(clock));
 
         passwordResetTokenRepo.save(resetToken);
+    }
+
+    private String randomSixDigitCode() {
+        return "%06d".formatted(secureRandom.nextInt(900_000) + 100_000);
     }
 
     private void enforceResetRateLimit(String email, String clientIp) {

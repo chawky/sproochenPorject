@@ -10,9 +10,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -72,6 +74,33 @@ class EmailAndOtpServiceTest {
                 .isInstanceOf(OtpRateLimitExceededException.class);
     }
 
+    @Test
+    void verifyOtpUsesInjectedClockForExpiry() {
+        AppUser user = new AppUser();
+        user.setId(42);
+        user.setEmail("learner@example.com");
+        Otp otp = new Otp();
+        otp.setUser(user);
+        otp.setOtp(123456);
+        otp.setOtpCreationDate(LocalDateTime.of(2026, 9, 12, 11, 50));
+
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        OtpRepo otpRepo = mock(OtpRepo.class);
+        when(appUserRepo.findByEmail("learner@example.com")).thenReturn(Optional.of(user));
+        when(otpRepo.findByUser(user)).thenReturn(Optional.of(otp));
+
+        EmailAndOtpService service = new EmailAndOtpService(
+                otpRepo,
+                appUserRepo,
+                mock(EmailSender.class),
+                CLOCK
+        );
+        ReflectionTestUtils.setField(service, "expirationOtp", 300000L);
+
+        assertThat(service.verifyOtp(request("learner@example.com", 123456))).isFalse();
+        verify(otpRepo, never()).delete(any(Otp.class));
+    }
+
     private EmailAndOtpService service(AppUserRepo appUserRepo, EmailSender emailSender) {
         OtpRepo otpRepo = mock(OtpRepo.class);
         when(otpRepo.findByUser(any(AppUser.class))).thenReturn(Optional.empty());
@@ -87,5 +116,12 @@ class EmailAndOtpServiceTest {
         ReflectionTestUtils.setField(service, "maxRequestsPerHour", 5);
         ReflectionTestUtils.setField(service, "maxIpRequestsPerHour", 30);
         return service;
+    }
+
+    private com.nailic.sproochencoach.dto.VerifyOtpRequest request(String email, int otp) {
+        com.nailic.sproochencoach.dto.VerifyOtpRequest request = new com.nailic.sproochencoach.dto.VerifyOtpRequest();
+        request.setEmail(email);
+        request.setOtp(otp);
+        return request;
     }
 }
