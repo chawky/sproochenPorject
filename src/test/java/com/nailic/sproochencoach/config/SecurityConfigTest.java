@@ -25,7 +25,7 @@ class SecurityConfigTest {
         assertThat(configuration.getAllowedOrigins()).containsExactly("http://localhost:4200");
         assertThat(configuration.getAllowedOriginPatterns()).isNull();
         assertThat(configuration.getAllowedMethods()).containsExactly("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
-        assertThat(configuration.getAllowedHeaders()).containsExactly("Authorization", "Content-Type");
+        assertThat(configuration.getAllowedHeaders()).containsExactly("Authorization", "Content-Type", "X-XSRF-TOKEN");
         assertThat(configuration.getAllowCredentials()).isTrue();
     }
 
