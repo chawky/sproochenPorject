@@ -26,7 +26,7 @@ class SecurityConfigTest {
         assertThat(configuration.getAllowedOriginPatterns()).isNull();
         assertThat(configuration.getAllowedMethods()).containsExactly("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
         assertThat(configuration.getAllowedHeaders()).containsExactly("Authorization", "Content-Type");
-        assertThat(configuration.getAllowCredentials()).isFalse();
+        assertThat(configuration.getAllowCredentials()).isTrue();
     }
 
     @Test

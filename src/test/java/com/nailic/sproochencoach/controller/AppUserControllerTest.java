@@ -6,14 +6,18 @@ import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import com.nailic.sproochencoach.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -46,7 +50,8 @@ class AppUserControllerTest {
                         mock(EmailAndOtpService.class),
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
-                        mock(PasswordResetService.class)
+                        mock(PasswordResetService.class),
+                        mock(JwtCookieService.class)
                 ))
                 .build();
 
@@ -78,7 +83,8 @@ class AppUserControllerTest {
                         emailAndOtpService,
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
-                        mock(PasswordResetService.class)
+                        mock(PasswordResetService.class),
+                        mock(JwtCookieService.class)
                 ))
                 .build();
 
@@ -93,5 +99,73 @@ class AppUserControllerTest {
                 .andExpect(status().isOk());
 
         verify(emailAndOtpService).sendEmailAndSaveOtp("learner@example.com", "203.0.113.10");
+    }
+
+    @Test
+    void loginSetsHttpOnlyAccessTokenCookie() throws Exception {
+        AppUserService appUserService = mock(AppUserService.class);
+        JwtCookieService jwtCookieService = mock(JwtCookieService.class);
+        ResponseUserDto authenticatedUser = new ResponseUserDto();
+        authenticatedUser.setJwt("jwt-token");
+
+        when(appUserService.login(any(RequestUserDto.class), eq("127.0.0.1")))
+                .thenReturn(authenticatedUser);
+        when(jwtCookieService.accessTokenCookie("jwt-token"))
+                .thenReturn(ResponseCookie.from("access_token", "jwt-token")
+                        .httpOnly(true)
+                        .path("/")
+                        .sameSite("Lax")
+                        .build());
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        appUserService,
+                        mock(EmailAndOtpService.class),
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class),
+                        jwtCookieService
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "learner@example.com",
+                                  "password": "password"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                        .contains("access_token=jwt-token", "HttpOnly", "SameSite=Lax"));
+    }
+
+    @Test
+    void logoutClearsAccessTokenCookie() throws Exception {
+        JwtCookieService jwtCookieService = mock(JwtCookieService.class);
+        when(jwtCookieService.clearAccessTokenCookie())
+                .thenReturn(ResponseCookie.from("access_token", "")
+                        .httpOnly(true)
+                        .path("/")
+                        .maxAge(0)
+                        .sameSite("Lax")
+                        .build());
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        mock(AppUserService.class),
+                        mock(EmailAndOtpService.class),
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class),
+                        jwtCookieService
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/users/logout"))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                        .contains("access_token=", "Max-Age=0", "HttpOnly"));
     }
 }

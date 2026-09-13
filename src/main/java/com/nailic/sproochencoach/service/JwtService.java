@@ -26,6 +26,10 @@ public class JwtService {
   @Value(AppConstants.PropertyPlaceholders.SECURITY_JWT_EXPIRATION_TIME)
   private long jwtExpiration;
 
+  public long getJwtExpiration() {
+    return jwtExpiration;
+  }
+
   public String generateToken(AppUser user) {
     return Jwts.builder()
         .claim("tokenVersion", user.getTokenVersion())

@@ -5,11 +5,13 @@ import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import com.nailic.sproochencoach.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,6 +30,7 @@ public class AppUserController {
     private final LuxembourgLocationService luxembourgLocationService;
     private final AiQuotaService aiQuotaService;
     private final PasswordResetService passwordResetService;
+    private final JwtCookieService jwtCookieService;
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     @GetMapping
@@ -142,8 +145,24 @@ public class AppUserController {
                 authenticatedUser
         );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.getJwt()).toString())
+                .body(response);
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        ApiResponse<Void> response = new ApiResponse<>(
+                true,
+                "Logout successful",
+                null
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.clearAccessTokenCookie().toString())
+                .body(response);
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<ResponseUserDto>> me(
             Authentication authentication

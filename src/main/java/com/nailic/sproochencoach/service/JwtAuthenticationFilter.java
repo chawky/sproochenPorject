@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.model.AppUser;
 import io.jsonwebtoken.JwtException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,14 +45,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+    String jwt = jwtFromRequest(request);
 
-    if (header == null || !header.startsWith(AppConstants.Http.BEARER_PREFIX)) {
+    if (jwt == null || jwt.isBlank()) {
       filterChain.doFilter(request, response);
       return;
     }
 
-    String jwt = header.substring(AppConstants.Http.BEARER_PREFIX.length());
     String email;
     try {
       email = jwtService.extractUsername(jwt);
@@ -76,5 +76,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     filterChain.doFilter(request, response);
+  }
+
+  private String jwtFromRequest(HttpServletRequest request) {
+    String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+    if (header != null && header.startsWith(AppConstants.Http.BEARER_PREFIX)) {
+      return header.substring(AppConstants.Http.BEARER_PREFIX.length());
+    }
+
+    Cookie[] cookies = request.getCookies();
+    if (cookies == null) {
+      return null;
+    }
+
+    for (Cookie cookie : cookies) {
+      if (AppConstants.Http.ACCESS_TOKEN_COOKIE.equals(cookie.getName())) {
+        return cookie.getValue();
+      }
+    }
+
+    return null;
   }
 }

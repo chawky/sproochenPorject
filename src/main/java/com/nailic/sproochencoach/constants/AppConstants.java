@@ -85,6 +85,7 @@ public final class AppConstants {
 
     public static final class Http {
         public static final String BEARER_PREFIX = "Bearer ";
+        public static final String ACCESS_TOKEN_COOKIE = "access_token";
         public static final String XI_API_KEY_HEADER = "xi-api-key";
         public static final String ANTHROPIC_API_KEY_HEADER = "x-api-key";
         public static final String ANTHROPIC_VERSION_HEADER = "anthropic-version";
@@ -188,6 +189,8 @@ public final class AppConstants {
         public static final String SECURITY_LOGIN_FAILED_ATTEMPT_WINDOW_MS = "${security.login.failed-attempt-window-ms}";
         public static final String SECURITY_LOGIN_MAX_FAILED_EMAIL_ATTEMPTS = "${security.login.max-failed-email-attempts}";
         public static final String SECURITY_LOGIN_MAX_FAILED_IP_ATTEMPTS = "${security.login.max-failed-ip-attempts}";
+        public static final String SECURITY_JWT_COOKIE_SECURE = "${security.jwt.cookie-secure:false}";
+        public static final String SECURITY_JWT_COOKIE_SAME_SITE = "${security.jwt.cookie-same-site:Lax}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";

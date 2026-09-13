@@ -64,6 +64,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/users/login",
+                                "/api/users/logout",
                                 "/api/users/addUser",
                                 "/api/users/sendOtp",
                                 "/api/users/resendOtp",
@@ -91,7 +92,7 @@ public class SecurityConfig {
                 .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
