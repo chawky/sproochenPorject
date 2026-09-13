@@ -7,6 +7,7 @@ import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
+import com.nailic.sproochencoach.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -44,7 +45,8 @@ class AppUserControllerTest {
                         appUserService,
                         mock(EmailAndOtpService.class),
                         mock(LuxembourgLocationService.class),
-                        mock(AiQuotaService.class)
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class)
                 ))
                 .build();
 
@@ -75,7 +77,8 @@ class AppUserControllerTest {
                         mock(AppUserService.class),
                         emailAndOtpService,
                         mock(LuxembourgLocationService.class),
-                        mock(AiQuotaService.class)
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class)
                 ))
                 .build();
 

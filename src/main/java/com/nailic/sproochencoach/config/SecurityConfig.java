@@ -67,7 +67,10 @@ public class SecurityConfig {
                                 "/api/users/addUser",
                                 "/api/users/sendOtp",
                                 "/api/users/resendOtp",
-                                "/api/users/verifyOtp")
+                                "/api/users/verifyOtp",
+                                "/api/users/forgot-password",
+                                "/api/users/resend-password-reset",
+                                "/api/users/reset-password")
                         .permitAll()
                         .anyRequest().authenticated()
                 ).addFilterBefore(

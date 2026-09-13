@@ -33,6 +33,8 @@ public class GlobalExceptionHandler {
             "We could not send the verification email right now. Please try again.";
     private static final String OTP_RATE_LIMIT_MESSAGE =
             "Please wait before requesting another verification code.";
+    private static final String PASSWORD_RESET_RATE_LIMIT_MESSAGE =
+            "Please wait before requesting another password reset code.";
     private static final String UNAUTHORIZED_MESSAGE = "Please log in and try again.";
     private static final String UNEXPECTED_ERROR_MESSAGE =
             "Something went wrong. Please try again.";
@@ -125,6 +127,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(error(OTP_RATE_LIMIT_MESSAGE));
+    }
+
+    @ExceptionHandler(PasswordResetRateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePasswordResetRateLimitExceeded(
+            PasswordResetRateLimitExceededException exception
+    ) {
+        log.warn("Handling PasswordResetRateLimitExceededException. message={}", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(error(PASSWORD_RESET_RATE_LIMIT_MESSAGE));
     }
 
     @ExceptionHandler(AiUsageRecordingException.class)

@@ -6,6 +6,7 @@ import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
+import com.nailic.sproochencoach.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class AppUserController {
     private final EmailAndOtpService emailAndOtpService;
     private final LuxembourgLocationService luxembourgLocationService;
     private final AiQuotaService aiQuotaService;
+    private final PasswordResetService passwordResetService;
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     @GetMapping
@@ -224,6 +226,49 @@ public class AppUserController {
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
                 "Email verified successfully",
+                null
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping({"/forgot-password", "/resend-password-reset"})
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        passwordResetService.requestReset(request.getEmail(), clientIp(httpServletRequest));
+
+        ApiResponse<Void> response = new ApiResponse<>(
+                true,
+                "If the email exists, a password reset code has been sent",
+                null
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        boolean reset = passwordResetService.resetPassword(request);
+
+        if (!reset) {
+            ApiResponse<Void> response = new ApiResponse<>(
+                    false,
+                    "The reset code is invalid, expired, or the maximum number of attempts was reached",
+                    null
+            );
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(response);
+        }
+
+        ApiResponse<Void> response = new ApiResponse<>(
+                true,
+                "Password reset successfully",
                 null
         );
 

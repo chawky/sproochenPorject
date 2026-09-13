@@ -181,6 +181,10 @@ public final class AppConstants {
         public static final String SECURITY_OTP_RESEND_COOLDOWN_MS = "${security.otp.resend-cooldown-ms}";
         public static final String SECURITY_OTP_MAX_REQUESTS_PER_HOUR = "${security.otp.max-requests-per-hour}";
         public static final String SECURITY_OTP_MAX_IP_REQUESTS_PER_HOUR = "${security.otp.max-ip-requests-per-hour}";
+        public static final String SECURITY_PASSWORD_RESET_EXPIRATION_MS = "${security.password-reset.expiration-ms}";
+        public static final String SECURITY_PASSWORD_RESET_RESEND_COOLDOWN_MS = "${security.password-reset.resend-cooldown-ms}";
+        public static final String SECURITY_PASSWORD_RESET_MAX_REQUESTS_PER_HOUR = "${security.password-reset.max-requests-per-hour}";
+        public static final String SECURITY_PASSWORD_RESET_MAX_IP_REQUESTS_PER_HOUR = "${security.password-reset.max-ip-requests-per-hour}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";
