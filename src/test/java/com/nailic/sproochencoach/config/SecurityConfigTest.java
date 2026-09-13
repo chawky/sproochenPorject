@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.config;
 import com.nailic.sproochencoach.service.JwtAuthenticationFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.web.csrf.DefaultCsrfToken;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.cors.CorsConfiguration;
 
@@ -40,5 +41,15 @@ class SecurityConfigTest {
 
         assertThat(configuration).isNotNull();
         assertThat(configuration.getAllowedOrigins()).isEmpty();
+    }
+
+    @Test
+    void spaCsrfHandlerAcceptsRawHeaderToken() {
+        SecurityConfig.SpaCsrfTokenRequestHandler handler = new SecurityConfig.SpaCsrfTokenRequestHandler();
+        DefaultCsrfToken csrfToken = new DefaultCsrfToken("X-XSRF-TOKEN", "_csrf", "raw-token");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/users/logout");
+        request.addHeader(csrfToken.getHeaderName(), csrfToken.getToken());
+
+        assertThat(handler.resolveCsrfTokenValue(request, csrfToken)).isEqualTo("raw-token");
     }
 }
