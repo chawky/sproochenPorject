@@ -191,7 +191,6 @@ public final class AppConstants {
         public static final String SECURITY_LOGIN_MAX_FAILED_IP_ATTEMPTS = "${security.login.max-failed-ip-attempts}";
         public static final String SECURITY_JWT_COOKIE_SECURE = "${security.jwt.cookie-secure:false}";
         public static final String SECURITY_JWT_COOKIE_SAME_SITE = "${security.jwt.cookie-same-site:Lax}";
-        public static final String SECURITY_PROXY_TRUSTED_PROXY_CIDRS = "${security.proxy.trusted-proxy-cidrs:}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";
