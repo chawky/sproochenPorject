@@ -3,6 +3,8 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.constants.AppConstants;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +18,9 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ClientIpResolver {
+    private static final Logger log = LoggerFactory.getLogger(ClientIpResolver.class);
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String X_REAL_IP = "X-Real-IP";
     private static final Pattern IPV4_PATTERN = Pattern.compile(
             "^(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(\\.(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)){3}$"
     );
@@ -27,12 +31,12 @@ public class ClientIpResolver {
     public String resolve(HttpServletRequest request) {
         String remoteAddress = request.getRemoteAddr();
         if (!isTrustedProxy(remoteAddress)) {
-            return remoteAddress;
+            return logAndReturn(request, remoteAddress);
         }
 
         String forwardedFor = request.getHeader(X_FORWARDED_FOR);
         if (forwardedFor == null || forwardedFor.isBlank()) {
-            return remoteAddress;
+            return logAndReturn(request, remoteAddress);
         }
 
         List<String> forwardedIps = Arrays.stream(forwardedFor.split(","))
@@ -46,11 +50,22 @@ public class ClientIpResolver {
                 continue;
             }
             if (!isTrustedProxy(candidate)) {
-                return candidate;
+                return logAndReturn(request, candidate);
             }
         }
 
-        return remoteAddress;
+        return logAndReturn(request, remoteAddress);
+    }
+
+    private String logAndReturn(HttpServletRequest request, String clientIp) {
+        log.info(
+                "IP DEBUG remoteAddr={}, xForwardedFor={}, xRealIp={}, resolved={}",
+                request.getRemoteAddr(),
+                request.getHeader(X_FORWARDED_FOR),
+                request.getHeader(X_REAL_IP),
+                clientIp
+        );
+        return clientIp;
     }
 
     private boolean isTrustedProxy(String ip) {

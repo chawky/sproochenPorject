@@ -50,7 +50,6 @@ public class PasswordResetService {
     private int maxIpRequestsPerHour;
 
     public void requestReset(String email, String clientIp) {
-        log.info("Resolved client IP: {}", clientIp);
         enforceResetRateLimit(email, clientIp);
         AppUser user = appUserRepo.findByEmail(trimEmail(email)).orElse(null);
 

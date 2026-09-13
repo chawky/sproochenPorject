@@ -120,7 +120,6 @@ public class AppUserService {
     }
 
     public AuthenticatedUser login(RequestUserDto appUserDto, String clientIp) {
-        log.info("Resolved client IP: {}", clientIp);
         loginRateLimitService.checkAllowed(appUserDto.getEmail(), clientIp);
 
         Authentication authentication;
