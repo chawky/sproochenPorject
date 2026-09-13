@@ -131,9 +131,10 @@ public class AppUserController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<ResponseUserDto>> login(
-            @Valid @RequestBody RequestUserDto request
+            @Valid @RequestBody RequestUserDto request,
+            HttpServletRequest httpServletRequest
     ) {
-        ResponseUserDto authenticatedUser = appUserService.login(request);
+        ResponseUserDto authenticatedUser = appUserService.login(request, clientIp(httpServletRequest));
 
         ApiResponse<ResponseUserDto> response = new ApiResponse<>(
                 true,

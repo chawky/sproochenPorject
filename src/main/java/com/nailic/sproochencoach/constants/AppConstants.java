@@ -185,6 +185,9 @@ public final class AppConstants {
         public static final String SECURITY_PASSWORD_RESET_RESEND_COOLDOWN_MS = "${security.password-reset.resend-cooldown-ms}";
         public static final String SECURITY_PASSWORD_RESET_MAX_REQUESTS_PER_HOUR = "${security.password-reset.max-requests-per-hour}";
         public static final String SECURITY_PASSWORD_RESET_MAX_IP_REQUESTS_PER_HOUR = "${security.password-reset.max-ip-requests-per-hour}";
+        public static final String SECURITY_LOGIN_FAILED_ATTEMPT_WINDOW_MS = "${security.login.failed-attempt-window-ms}";
+        public static final String SECURITY_LOGIN_MAX_FAILED_EMAIL_ATTEMPTS = "${security.login.max-failed-email-attempts}";
+        public static final String SECURITY_LOGIN_MAX_FAILED_IP_ATTEMPTS = "${security.login.max-failed-ip-attempts}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";

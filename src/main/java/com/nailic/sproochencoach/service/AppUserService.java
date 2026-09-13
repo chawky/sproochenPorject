@@ -18,6 +18,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class AppUserService {
     private final AuthenticationManager authenticationManager;
     private final UserLoginDayService userLoginDayService;
     private final SubscriptionAccessService subscriptionAccessService;
+    private final LoginRateLimitService loginRateLimitService;
 
     public List<ResponseUserDto> findAll() {
         List<ResponseUserDto> users = appUserRepo.findAll().stream()
@@ -113,16 +115,27 @@ public class AppUserService {
     }
 
     public ResponseUserDto login(RequestUserDto appUserDto) {
+        return login(appUserDto, null);
+    }
+
+    public ResponseUserDto login(RequestUserDto appUserDto, String clientIp) {
+        loginRateLimitService.checkAllowed(appUserDto.getEmail(), clientIp);
+
         Authentication authentication;
         try {
             authentication = authenticationManager
                     .authenticate(new UsernamePasswordAuthenticationToken(appUserDto.getEmail(), appUserDto.getPassword()));
         } catch (DisabledException exception) {
+            loginRateLimitService.recordFailure(appUserDto.getEmail(), clientIp);
             log.warn("Login rejected because email is not verified: {}", maskEmail(appUserDto.getEmail()));
             throw new EmailNotVerifiedException("Email not verified. Please verify your email.");
+        } catch (AuthenticationException exception) {
+            loginRateLimitService.recordFailure(appUserDto.getEmail(), clientIp);
+            throw exception;
         }
 
         AppUser user = (AppUser) authentication.getPrincipal();
+        loginRateLimitService.recordSuccess(appUserDto.getEmail());
         userLoginDayService.recordLogin(user);
 
         ResponseUserDto userDto = toResponseUserDto(user);

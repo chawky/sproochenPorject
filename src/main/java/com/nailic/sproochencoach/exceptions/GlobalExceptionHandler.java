@@ -35,6 +35,8 @@ public class GlobalExceptionHandler {
             "Please wait before requesting another verification code.";
     private static final String PASSWORD_RESET_RATE_LIMIT_MESSAGE =
             "Please wait before requesting another password reset code.";
+    private static final String LOGIN_RATE_LIMIT_MESSAGE =
+            "Too many failed login attempts. Please wait and try again.";
     private static final String UNAUTHORIZED_MESSAGE = "Please log in and try again.";
     private static final String UNEXPECTED_ERROR_MESSAGE =
             "Something went wrong. Please try again.";
@@ -138,6 +140,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(error(PASSWORD_RESET_RATE_LIMIT_MESSAGE));
+    }
+
+    @ExceptionHandler(LoginRateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLoginRateLimitExceeded(LoginRateLimitExceededException exception) {
+        log.warn("Handling LoginRateLimitExceededException. message={}", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(error(LOGIN_RATE_LIMIT_MESSAGE));
     }
 
     @ExceptionHandler(AiUsageRecordingException.class)
