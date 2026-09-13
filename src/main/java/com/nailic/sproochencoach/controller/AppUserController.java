@@ -4,6 +4,8 @@ import com.nailic.sproochencoach.dto.*;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
+import com.nailic.sproochencoach.service.AuthenticatedUser;
+import com.nailic.sproochencoach.service.ClientIpResolver;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
@@ -31,7 +33,7 @@ public class AppUserController {
     private final AiQuotaService aiQuotaService;
     private final PasswordResetService passwordResetService;
     private final JwtCookieService jwtCookieService;
-    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private final ClientIpResolver clientIpResolver;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -137,16 +139,16 @@ public class AppUserController {
             @Valid @RequestBody RequestUserDto request,
             HttpServletRequest httpServletRequest
     ) {
-        ResponseUserDto authenticatedUser = appUserService.login(request, clientIp(httpServletRequest));
+        AuthenticatedUser authenticatedUser = appUserService.login(request, clientIpResolver.resolve(httpServletRequest));
 
         ApiResponse<ResponseUserDto> response = new ApiResponse<>(
                 true,
                 "Login successful",
-                authenticatedUser
+                authenticatedUser.user()
         );
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.getJwt()).toString())
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.jwt()).toString())
                 .body(response);
     }
 
@@ -198,7 +200,7 @@ public class AppUserController {
             @Valid @RequestBody SendOtpRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail(), clientIp(httpServletRequest));
+        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -214,7 +216,7 @@ public class AppUserController {
             @Valid @RequestBody SendOtpRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail(), clientIp(httpServletRequest));
+        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -257,7 +259,7 @@ public class AppUserController {
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        passwordResetService.requestReset(request.getEmail(), clientIp(httpServletRequest));
+        passwordResetService.requestReset(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -295,12 +297,4 @@ public class AppUserController {
         return ResponseEntity.ok(response);
     }
 
-    private String clientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader(X_FORWARDED_FOR);
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",")[0].trim();
-        }
-
-        return request.getRemoteAddr();
-    }
 }

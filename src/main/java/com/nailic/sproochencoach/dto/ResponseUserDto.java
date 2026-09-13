@@ -26,5 +26,4 @@ public class ResponseUserDto {
   private boolean adminDisabled;
   private Set<String> roles = new HashSet<>();
   private SubscriptionInfoDto subscription;
-  private String jwt;
 }

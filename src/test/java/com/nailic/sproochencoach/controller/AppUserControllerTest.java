@@ -5,6 +5,8 @@ import com.nailic.sproochencoach.dto.ResponseUserDto;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.service.AiQuotaService;
 import com.nailic.sproochencoach.service.AppUserService;
+import com.nailic.sproochencoach.service.AuthenticatedUser;
+import com.nailic.sproochencoach.service.ClientIpResolver;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
 import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
@@ -51,7 +53,8 @@ class AppUserControllerTest {
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
-                        mock(JwtCookieService.class)
+                        mock(JwtCookieService.class),
+                        mock(ClientIpResolver.class)
                 ))
                 .build();
 
@@ -75,6 +78,8 @@ class AppUserControllerTest {
     @Test
     void sendOtpUsesForwardedClientIp() throws Exception {
         EmailAndOtpService emailAndOtpService = mock(EmailAndOtpService.class);
+        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
         doNothing().when(emailAndOtpService).sendEmailAndSaveOtp("learner@example.com", "203.0.113.10");
 
         MockMvc mockMvc = MockMvcBuilders
@@ -84,7 +89,8 @@ class AppUserControllerTest {
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
-                        mock(JwtCookieService.class)
+                        mock(JwtCookieService.class),
+                        clientIpResolver
                 ))
                 .build();
 
@@ -105,11 +111,12 @@ class AppUserControllerTest {
     void loginSetsHttpOnlyAccessTokenCookie() throws Exception {
         AppUserService appUserService = mock(AppUserService.class);
         JwtCookieService jwtCookieService = mock(JwtCookieService.class);
+        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
         ResponseUserDto authenticatedUser = new ResponseUserDto();
-        authenticatedUser.setJwt("jwt-token");
 
+        when(clientIpResolver.resolve(any())).thenReturn("127.0.0.1");
         when(appUserService.login(any(RequestUserDto.class), eq("127.0.0.1")))
-                .thenReturn(authenticatedUser);
+                .thenReturn(new AuthenticatedUser(authenticatedUser, "jwt-token"));
         when(jwtCookieService.accessTokenCookie("jwt-token"))
                 .thenReturn(ResponseCookie.from("access_token", "jwt-token")
                         .httpOnly(true)
@@ -124,7 +131,8 @@ class AppUserControllerTest {
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
-                        jwtCookieService
+                        jwtCookieService,
+                        clientIpResolver
                 ))
                 .build();
 
@@ -137,6 +145,7 @@ class AppUserControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jwt").doesNotExist())
                 .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
                         .contains("access_token=jwt-token", "HttpOnly", "SameSite=Lax"));
     }
@@ -159,7 +168,8 @@ class AppUserControllerTest {
                         mock(LuxembourgLocationService.class),
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
-                        jwtCookieService
+                        jwtCookieService,
+                        mock(ClientIpResolver.class)
                 ))
                 .build();
 

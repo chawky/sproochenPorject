@@ -115,11 +115,11 @@ public class AppUserService {
         return responseUserDto;
     }
 
-    public ResponseUserDto login(RequestUserDto appUserDto) {
+    public AuthenticatedUser login(RequestUserDto appUserDto) {
         return login(appUserDto, null);
     }
 
-    public ResponseUserDto login(RequestUserDto appUserDto, String clientIp) {
+    public AuthenticatedUser login(RequestUserDto appUserDto, String clientIp) {
         loginRateLimitService.checkAllowed(appUserDto.getEmail(), clientIp);
 
         Authentication authentication;
@@ -140,9 +140,8 @@ public class AppUserService {
         userLoginDayService.recordLogin(user);
 
         ResponseUserDto userDto = toResponseUserDto(user);
-        userDto.setJwt(jwtService.generateToken(user));
 
-        return userDto;
+        return new AuthenticatedUser(userDto, jwtService.generateToken(user));
     }
 
     public ResponseUserDto toResponseUserDto(AppUser user) {
