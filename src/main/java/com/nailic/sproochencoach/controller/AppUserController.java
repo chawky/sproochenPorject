@@ -139,7 +139,8 @@ public class AppUserController {
             @Valid @RequestBody RequestUserDto request,
             HttpServletRequest httpServletRequest
     ) {
-        AuthenticatedUser authenticatedUser = appUserService.login(request, clientIpResolver.resolve(httpServletRequest));
+        String clientIp = clientIpResolver.resolve(httpServletRequest);
+        AuthenticatedUser authenticatedUser = appUserService.login(request, clientIp);
 
         ApiResponse<ResponseUserDto> response = new ApiResponse<>(
                 true,
@@ -200,7 +201,8 @@ public class AppUserController {
             @Valid @RequestBody SendOtpRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
+        String clientIp = clientIpResolver.resolve(httpServletRequest);
+        emailAndOtpService.sendEmailAndSaveOtp(request.getEmail(), clientIp);
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -216,7 +218,8 @@ public class AppUserController {
             @Valid @RequestBody SendOtpRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
+        String clientIp = clientIpResolver.resolve(httpServletRequest);
+        emailAndOtpService.resendEmailAndSaveOtp(request.getEmail(), clientIp);
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,
@@ -259,7 +262,8 @@ public class AppUserController {
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpServletRequest
     ) {
-        passwordResetService.requestReset(request.getEmail(), clientIpResolver.resolve(httpServletRequest));
+        String clientIp = clientIpResolver.resolve(httpServletRequest);
+        passwordResetService.requestReset(request.getEmail(), clientIp);
 
         ApiResponse<Void> response = new ApiResponse<>(
                 true,

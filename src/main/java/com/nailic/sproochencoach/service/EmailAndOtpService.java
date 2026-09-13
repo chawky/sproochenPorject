@@ -51,6 +51,7 @@ public class EmailAndOtpService {
     }
 
     public void sendEmailAndSaveOtp(String to, String clientIp) {
+        log.info("Resolved client IP: {}", clientIp);
         enforceOtpRateLimit(to, clientIp);
         AppUser user = appUserRepo.findByEmail(to).orElse(null);
 
@@ -139,6 +140,7 @@ public class EmailAndOtpService {
     }
 
     public void resendEmailAndSaveOtp(String email, String clientIp) {
+        log.info("Resolved client IP: {}", clientIp);
         enforceOtpRateLimit(email, clientIp);
         AppUser user = appUserRepo.findByEmail(email).orElse(null);
 
