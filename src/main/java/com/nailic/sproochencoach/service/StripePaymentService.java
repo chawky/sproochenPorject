@@ -17,6 +17,7 @@ import com.stripe.model.StripeObject;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -132,9 +133,13 @@ public class StripePaymentService {
         String stripeSubscriptionId = subscriptionPlan.getStripeSubscriptionId();
 
         try {
+            SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(true)
+                    .build();
+
             stripeClient.v1()
                     .subscriptions()
-                    .cancel(stripeSubscriptionId);
+                    .update(stripeSubscriptionId, params);
         } catch (StripeException exception) {
             throw new StripePaymentException(
                     HttpStatus.BAD_GATEWAY.value(),
