@@ -24,6 +24,9 @@ public class ResponseUserDto {
   private String addressInfo;
   private boolean emailVerified;
   private boolean adminDisabled;
+  private boolean googleLinked;
+  private boolean hasPassword;
   private Set<String> roles = new HashSet<>();
   private SubscriptionInfoDto subscription;
 }
+

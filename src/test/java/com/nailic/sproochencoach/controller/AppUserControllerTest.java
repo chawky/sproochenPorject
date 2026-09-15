@@ -199,6 +199,55 @@ class AppUserControllerTest {
     }
 
     @Test
+    void setPasswordSetsFreshHttpOnlyAccessTokenCookie() throws Exception {
+        AppUserService appUserService = mock(AppUserService.class);
+        JwtCookieService jwtCookieService = mock(JwtCookieService.class);
+        AppUser authenticatedPrincipal = new AppUser();
+        authenticatedPrincipal.setId(42);
+        Authentication authentication = mock(Authentication.class);
+        ResponseUserDto responseUser = new ResponseUserDto();
+        responseUser.setHasPassword(true);
+
+        when(authentication.getPrincipal()).thenReturn(authenticatedPrincipal);
+        when(appUserService.setPassword(eq(42), any()))
+                .thenReturn(new AuthenticatedUser(responseUser, "fresh-jwt"));
+        when(jwtCookieService.accessTokenCookie("fresh-jwt"))
+                .thenReturn(ResponseCookie.from("access_token", "fresh-jwt")
+                        .httpOnly(true)
+                        .path("/")
+                        .sameSite("Lax")
+                        .build());
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        appUserService,
+                        mock(EmailAndOtpService.class),
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class),
+                        jwtCookieService,
+                        mock(ClientIpResolver.class),
+                        mock(GoogleLoginService.class)
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/users/me/password")
+                        .principal(authentication)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "newPassword": "new-password",
+                                  "confirmPassword": "new-password"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password set successfully"))
+                .andExpect(jsonPath("$.data.hasPassword").value(true))
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                        .contains("access_token=fresh-jwt", "HttpOnly", "SameSite=Lax"));
+    }
+
+    @Test
     void logoutClearsAccessTokenCookie() throws Exception {
         JwtCookieService jwtCookieService = mock(JwtCookieService.class);
         when(jwtCookieService.clearAccessTokenCookie())

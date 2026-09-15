@@ -191,6 +191,40 @@ public class AppUserController {
         );
     }
 
+    @PostMapping("/me/password")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> setPassword(
+            Authentication authentication,
+            @Valid @RequestBody SetPasswordRequest request
+    ) {
+        AppUser user = (AppUser) authentication.getPrincipal();
+        AuthenticatedUser authenticatedUser = appUserService.setPassword(user.getId(), request);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.jwt()).toString())
+                .body(new ApiResponse<>(
+                        true,
+                        "Password set successfully",
+                        authenticatedUser.user()
+                ));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        AppUser user = (AppUser) authentication.getPrincipal();
+        AuthenticatedUser authenticatedUser = appUserService.changePassword(user.getId(), request);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.jwt()).toString())
+                .body(new ApiResponse<>(
+                        true,
+                        "Password changed successfully",
+                        authenticatedUser.user()
+                ));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         ApiResponse<Void> response = new ApiResponse<>(

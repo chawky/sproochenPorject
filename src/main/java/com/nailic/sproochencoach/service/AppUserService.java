@@ -2,8 +2,11 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.dto.RequestUserDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
+import com.nailic.sproochencoach.dto.ChangePasswordRequest;
+import com.nailic.sproochencoach.dto.SetPasswordRequest;
 import com.nailic.sproochencoach.dto.SubscriptionInfoDto;
 import com.nailic.sproochencoach.constants.AppConstants;
+import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.exceptions.EmailNotVerifiedException;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
@@ -101,11 +104,6 @@ public class AppUserService {
             user.setEnabled(false);
         }
 
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user.setTokenVersion(user.getTokenVersion() + 1);
-        }
-
         AppUser savedUser = appUserRepo.save(user);
 
         return toResponseUserDto(savedUser);
@@ -148,6 +146,48 @@ public class AppUserService {
         return new AuthenticatedUser(userDto, jwtService.generateToken(user));
     }
 
+    public AuthenticatedUser setPassword(Integer id, SetPasswordRequest request) {
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        if (user.getPassword() != null) {
+            throw new BadRequestException("Password already exists. Use change password.");
+        }
+
+        validatePasswordConfirmation(request.newPassword(), request.confirmPassword());
+        setEncodedPassword(user, request.newPassword());
+        AppUser savedUser = appUserRepo.save(user);
+
+        return new AuthenticatedUser(toResponseUserDto(savedUser), jwtService.generateToken(savedUser));
+    }
+
+    public AuthenticatedUser changePassword(Integer id, ChangePasswordRequest request) {
+        AppUser user = appUserRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        if (user.getPassword() == null) {
+            throw new BadRequestException("No existing password. Use set password.");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Bad credentials");
+        }
+
+        validatePasswordConfirmation(request.newPassword(), request.confirmPassword());
+        setEncodedPassword(user, request.newPassword());
+        AppUser savedUser = appUserRepo.save(user);
+
+        return new AuthenticatedUser(toResponseUserDto(savedUser), jwtService.generateToken(savedUser));
+    }
+
+    private void validatePasswordConfirmation(String newPassword, String confirmPassword) {
+        if (!newPassword.equals(confirmPassword)) {
+            throw new BadRequestException("Password confirmation does not match");
+        }
+    }
+
+    private void setEncodedPassword(AppUser user, String newPassword) {
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setTokenVersion(user.getTokenVersion() + 1);
+    }
+
     private void rejectPasswordLoginForGoogleOnlyAccount(String email, String clientIp) {
         Optional<AppUser> maybeUser = appUserRepo.findByEmail(email);
         AppUser user = maybeUser == null ? null : maybeUser.orElse(null);
@@ -173,6 +213,8 @@ public class AppUserService {
         response.setAddressInfo(user.getAddressInfo());
         response.setEmailVerified(user.isEnabled());
         response.setAdminDisabled(user.isAdminDisabled());
+        response.setGoogleLinked(user.getGoogleSubject() != null && !user.getGoogleSubject().isBlank());
+        response.setHasPassword(user.getPassword() != null);
         response.setRoles(toRoleNames(user));
         response.setSubscription(toSubscriptionInfoDto(user.getSubscriptionPlan()));
         return response;
@@ -275,3 +317,4 @@ public class AppUserService {
         return email.charAt(0) + "***" + email.substring(atIndex);
     }
 }
+

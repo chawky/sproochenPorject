@@ -1,6 +1,8 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.dto.RequestUserDto;
+import com.nailic.sproochencoach.dto.ChangePasswordRequest;
+import com.nailic.sproochencoach.dto.SetPasswordRequest;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.RoleRepo;
@@ -57,9 +59,10 @@ class AppUserServiceTest {
     }
 
     @Test
-    void updateUserBumpsTokenVersionWhenPasswordChanges() {
+    void updateUserDoesNotChangePasswordFromProfileRequest() {
         AppUserRepo appUserRepo = mock(AppUserRepo.class);
         AppUser user = verifiedUser();
+        user.setPassword("old-password");
         RequestUserDto request = new RequestUserDto();
         request.setPassword("new-password");
 
@@ -77,8 +80,98 @@ class AppUserServiceTest {
 
         service.updateUser(42, request);
 
+        assertThat(user.getPassword()).isEqualTo("old-password");
+        assertThat(user.getTokenVersion()).isZero();
+        verify(passwordEncoder, never()).encode("new-password");
+    }
+
+    @Test
+    void setPasswordCreatesFirstPasswordAndReturnsFreshJwt() {
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        AppUser user = verifiedUser();
+        user.setPassword(null);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtService jwtService = mock(JwtService.class);
+
+        when(appUserRepo.findById(42)).thenReturn(Optional.of(user));
+        when(appUserRepo.save(user)).thenReturn(user);
+        when(passwordEncoder.encode("new-password")).thenReturn("encoded-password");
+        when(jwtService.generateToken(user)).thenReturn("fresh-jwt");
+
+        AppUserService service = service(
+                appUserRepo,
+                mock(AuthenticationManager.class),
+                mock(LoginRateLimitService.class),
+                passwordEncoder,
+                jwtService
+        );
+
+        AuthenticatedUser authenticatedUser = service.setPassword(
+                42,
+                new SetPasswordRequest("new-password", "new-password")
+        );
+
         assertThat(user.getPassword()).isEqualTo("encoded-password");
         assertThat(user.getTokenVersion()).isEqualTo(1);
+        assertThat(authenticatedUser.jwt()).isEqualTo("fresh-jwt");
+        assertThat(authenticatedUser.user().isHasPassword()).isTrue();
+    }
+
+    @Test
+    void changePasswordRequiresCurrentPassword() {
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        AppUser user = verifiedUser();
+        user.setPassword("encoded-old-password");
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        when(appUserRepo.findById(42)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong-password", "encoded-old-password")).thenReturn(false);
+
+        AppUserService service = service(
+                appUserRepo,
+                mock(AuthenticationManager.class),
+                mock(LoginRateLimitService.class),
+                passwordEncoder
+        );
+
+        assertThatThrownBy(() -> service.changePassword(
+                42,
+                new ChangePasswordRequest("wrong-password", "new-password", "new-password")
+        )).isInstanceOf(BadCredentialsException.class);
+
+        verify(appUserRepo, never()).save(any(AppUser.class));
+    }
+
+    @Test
+    void changePasswordUpdatesPasswordAndReturnsFreshJwt() {
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        AppUser user = verifiedUser();
+        user.setPassword("encoded-old-password");
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        JwtService jwtService = mock(JwtService.class);
+
+        when(appUserRepo.findById(42)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old-password", "encoded-old-password")).thenReturn(true);
+        when(passwordEncoder.encode("new-password")).thenReturn("encoded-new-password");
+        when(appUserRepo.save(user)).thenReturn(user);
+        when(jwtService.generateToken(user)).thenReturn("fresh-jwt");
+
+        AppUserService service = service(
+                appUserRepo,
+                mock(AuthenticationManager.class),
+                mock(LoginRateLimitService.class),
+                passwordEncoder,
+                jwtService
+        );
+
+        AuthenticatedUser authenticatedUser = service.changePassword(
+                42,
+                new ChangePasswordRequest("old-password", "new-password", "new-password")
+        );
+
+        assertThat(user.getPassword()).isEqualTo("encoded-new-password");
+        assertThat(user.getTokenVersion()).isEqualTo(1);
+        assertThat(authenticatedUser.jwt()).isEqualTo("fresh-jwt");
     }
 
     @Test
@@ -133,6 +226,25 @@ class AppUserServiceTest {
         verify(authenticationManager, never()).authenticate(any());
     }
 
+    @Test
+    void toResponseUserDtoMarksGoogleLinked() {
+        AppUser user = verifiedUser();
+        user.setGoogleSubject("google-subject");
+
+        AppUserService service = service(mock(AppUserRepo.class));
+
+        assertThat(service.toResponseUserDto(user).isGoogleLinked()).isTrue();
+    }
+
+    @Test
+    void toResponseUserDtoExposesHasPassword() {
+        AppUser user = verifiedUser();
+        user.setPassword("encoded-password");
+
+        AppUserService service = service(mock(AppUserRepo.class));
+
+        assertThat(service.toResponseUserDto(user).isHasPassword()).isTrue();
+    }
     private AppUser verifiedUser() {
         AppUser user = new AppUser();
         user.setId(42);
@@ -158,7 +270,8 @@ class AppUserServiceTest {
                 appUserRepo,
                 authenticationManager,
                 loginRateLimitService,
-                mock(PasswordEncoder.class)
+                mock(PasswordEncoder.class),
+                mock(JwtService.class)
         );
     }
 
@@ -168,11 +281,27 @@ class AppUserServiceTest {
             LoginRateLimitService loginRateLimitService,
             PasswordEncoder passwordEncoder
     ) {
+        return service(
+                appUserRepo,
+                authenticationManager,
+                loginRateLimitService,
+                passwordEncoder,
+                mock(JwtService.class)
+        );
+    }
+
+    private AppUserService service(
+            AppUserRepo appUserRepo,
+            AuthenticationManager authenticationManager,
+            LoginRateLimitService loginRateLimitService,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
+    ) {
         return new AppUserService(
                 appUserRepo,
                 mock(RoleRepo.class),
                 passwordEncoder,
-                mock(JwtService.class),
+                jwtService,
                 mock(EmailAndOtpService.class),
                 authenticationManager,
                 mock(UserLoginDayService.class),
@@ -181,3 +310,4 @@ class AppUserServiceTest {
         );
     }
 }
+
