@@ -71,6 +71,7 @@ public class SecurityConfig {
                                 bearerTokenRequestMatcher(),
                                 post("/api/payments/webhook"),
                                 post("/api/users/login"),
+                                post("/api/users/google-login"),
                                 post("/api/users/addUser"),
                                 post("/api/users/sendOtp"),
                                 post("/api/users/resendOtp"),
@@ -94,6 +95,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/users/login",
+                                "/api/users/google-login",
                                 "/api/users/logout",
                                 "/api/users/addUser",
                                 "/api/users/sendOtp",

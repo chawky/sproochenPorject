@@ -8,6 +8,7 @@ import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.AuthenticatedUser;
 import com.nailic.sproochencoach.service.ClientIpResolver;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.GoogleLoginService;
 import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import com.nailic.sproochencoach.service.PasswordResetService;
@@ -54,7 +55,8 @@ class AppUserControllerTest {
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
                         mock(JwtCookieService.class),
-                        mock(ClientIpResolver.class)
+                        mock(ClientIpResolver.class),
+                        mock(GoogleLoginService.class)
                 ))
                 .build();
 
@@ -90,7 +92,8 @@ class AppUserControllerTest {
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
                         mock(JwtCookieService.class),
-                        clientIpResolver
+                        clientIpResolver,
+                        mock(GoogleLoginService.class)
                 ))
                 .build();
 
@@ -132,7 +135,8 @@ class AppUserControllerTest {
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
                         jwtCookieService,
-                        clientIpResolver
+                        clientIpResolver,
+                        mock(GoogleLoginService.class)
                 ))
                 .build();
 
@@ -145,6 +149,50 @@ class AppUserControllerTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jwt").doesNotExist())
+                .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                        .contains("access_token=jwt-token", "HttpOnly", "SameSite=Lax"));
+    }
+
+    @Test
+    void googleLoginSetsHttpOnlyAccessTokenCookie() throws Exception {
+        GoogleLoginService googleLoginService = mock(GoogleLoginService.class);
+        JwtCookieService jwtCookieService = mock(JwtCookieService.class);
+        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
+        ResponseUserDto authenticatedUser = new ResponseUserDto();
+
+        when(clientIpResolver.resolve(any())).thenReturn("127.0.0.1");
+        when(googleLoginService.login("google-id-token", "127.0.0.1"))
+                .thenReturn(new AuthenticatedUser(authenticatedUser, "jwt-token"));
+        when(jwtCookieService.accessTokenCookie("jwt-token"))
+                .thenReturn(ResponseCookie.from("access_token", "jwt-token")
+                        .httpOnly(true)
+                        .path("/")
+                        .sameSite("Lax")
+                        .build());
+
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AppUserController(
+                        mock(AppUserService.class),
+                        mock(EmailAndOtpService.class),
+                        mock(LuxembourgLocationService.class),
+                        mock(AiQuotaService.class),
+                        mock(PasswordResetService.class),
+                        jwtCookieService,
+                        clientIpResolver,
+                        googleLoginService
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/users/google-login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idToken": "google-id-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Google login successful"))
                 .andExpect(jsonPath("$.data.jwt").doesNotExist())
                 .andExpect(result -> assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
                         .contains("access_token=jwt-token", "HttpOnly", "SameSite=Lax"));
@@ -169,7 +217,8 @@ class AppUserControllerTest {
                         mock(AiQuotaService.class),
                         mock(PasswordResetService.class),
                         jwtCookieService,
-                        mock(ClientIpResolver.class)
+                        mock(ClientIpResolver.class),
+                        mock(GoogleLoginService.class)
                 ))
                 .build();
 

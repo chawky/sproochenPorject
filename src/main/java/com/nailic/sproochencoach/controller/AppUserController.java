@@ -7,6 +7,7 @@ import com.nailic.sproochencoach.service.AppUserService;
 import com.nailic.sproochencoach.service.AuthenticatedUser;
 import com.nailic.sproochencoach.service.ClientIpResolver;
 import com.nailic.sproochencoach.service.EmailAndOtpService;
+import com.nailic.sproochencoach.service.GoogleLoginService;
 import com.nailic.sproochencoach.service.JwtCookieService;
 import com.nailic.sproochencoach.service.LuxembourgLocationService;
 import com.nailic.sproochencoach.service.PasswordResetService;
@@ -34,6 +35,7 @@ public class AppUserController {
     private final PasswordResetService passwordResetService;
     private final JwtCookieService jwtCookieService;
     private final ClientIpResolver clientIpResolver;
+    private final GoogleLoginService googleLoginService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -151,6 +153,42 @@ public class AppUserController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.jwt()).toString())
                 .body(response);
+    }
+
+    @PostMapping("/google-login")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> googleLogin(
+            @Valid @RequestBody GoogleLoginRequestDto request,
+            HttpServletRequest httpServletRequest
+    ) {
+        String clientIp = clientIpResolver.resolve(httpServletRequest);
+        AuthenticatedUser authenticatedUser = googleLoginService.login(request.idToken(), clientIp);
+
+        ApiResponse<ResponseUserDto> response = new ApiResponse<>(
+                true,
+                "Google login successful",
+                authenticatedUser.user()
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookieService.accessTokenCookie(authenticatedUser.jwt()).toString())
+                .body(response);
+    }
+
+    @PostMapping("/me/google-link")
+    public ResponseEntity<ApiResponse<ResponseUserDto>> linkGoogle(
+            Authentication authentication,
+            @Valid @RequestBody GoogleLoginRequestDto request
+    ) {
+        AppUser user = (AppUser) authentication.getPrincipal();
+        ResponseUserDto responseUser = googleLoginService.linkCurrentUser(user, request.idToken());
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Google account linked successfully",
+                        responseUser
+                )
+        );
     }
 
     @PostMapping("/logout")

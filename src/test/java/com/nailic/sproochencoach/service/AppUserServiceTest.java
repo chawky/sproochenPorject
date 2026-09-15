@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,15 +85,17 @@ class AppUserServiceTest {
     void loginRecordsFailedAuthenticationForRateLimiting() {
         AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
         LoginRateLimitService loginRateLimitService = mock(LoginRateLimitService.class);
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
         RequestUserDto request = new RequestUserDto();
         request.setEmail("learner@example.com");
         request.setPassword("wrong-password");
 
+        when(appUserRepo.findByEmail("learner@example.com")).thenReturn(Optional.empty());
         when(authenticationManager.authenticate(any()))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
 
         AppUserService service = service(
-                mock(AppUserRepo.class),
+                appUserRepo,
                 authenticationManager,
                 loginRateLimitService
         );
@@ -102,6 +105,32 @@ class AppUserServiceTest {
 
         verify(loginRateLimitService).checkAllowed("learner@example.com", "203.0.113.10");
         verify(loginRateLimitService).recordFailure("learner@example.com", "203.0.113.10");
+    }
+
+    @Test
+    void loginRejectsGoogleOnlyAccountWithGenericBadCredentials() {
+        AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+        LoginRateLimitService loginRateLimitService = mock(LoginRateLimitService.class);
+        AppUserRepo appUserRepo = mock(AppUserRepo.class);
+        AppUser googleOnlyUser = verifiedUser();
+        googleOnlyUser.setPassword(null);
+        RequestUserDto request = new RequestUserDto();
+        request.setEmail("old@example.com");
+        request.setPassword("password");
+
+        when(appUserRepo.findByEmail("old@example.com")).thenReturn(Optional.of(googleOnlyUser));
+
+        AppUserService service = service(
+                appUserRepo,
+                authenticationManager,
+                loginRateLimitService
+        );
+
+        assertThatThrownBy(() -> service.login(request, "203.0.113.10"))
+                .isInstanceOf(BadCredentialsException.class);
+
+        verify(loginRateLimitService).recordFailure("old@example.com", "203.0.113.10");
+        verify(authenticationManager, never()).authenticate(any());
     }
 
     private AppUser verifiedUser() {

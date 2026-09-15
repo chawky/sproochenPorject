@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.dto.RequestUserDto;
 import com.nailic.sproochencoach.dto.ResponseUserDto;
 import com.nailic.sproochencoach.dto.SubscriptionInfoDto;
+import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.exceptions.EmailNotVerifiedException;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,7 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AppUserService {
     private static final Logger log = LoggerFactory.getLogger(AppUserService.class);
-    private static final String DEFAULT_REGISTRATION_ROLE = "USER";
+    private static final String DEFAULT_REGISTRATION_ROLE = AppConstants.Roles.USER;
 
     private final AppUserRepo appUserRepo;
     private final RoleRepo roleRepo;
@@ -121,6 +124,7 @@ public class AppUserService {
 
     public AuthenticatedUser login(RequestUserDto appUserDto, String clientIp) {
         loginRateLimitService.checkAllowed(appUserDto.getEmail(), clientIp);
+        rejectPasswordLoginForGoogleOnlyAccount(appUserDto.getEmail(), clientIp);
 
         Authentication authentication;
         try {
@@ -142,6 +146,17 @@ public class AppUserService {
         ResponseUserDto userDto = toResponseUserDto(user);
 
         return new AuthenticatedUser(userDto, jwtService.generateToken(user));
+    }
+
+    private void rejectPasswordLoginForGoogleOnlyAccount(String email, String clientIp) {
+        Optional<AppUser> maybeUser = appUserRepo.findByEmail(email);
+        AppUser user = maybeUser == null ? null : maybeUser.orElse(null);
+        if (user == null || user.getPassword() != null) {
+            return;
+        }
+
+        loginRateLimitService.recordFailure(email, clientIp);
+        throw new BadCredentialsException("Bad credentials");
     }
 
     public ResponseUserDto toResponseUserDto(AppUser user) {

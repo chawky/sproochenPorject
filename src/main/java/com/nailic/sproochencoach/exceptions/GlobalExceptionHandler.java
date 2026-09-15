@@ -54,6 +54,19 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(AccountLinkingRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccountLinkingRequired(AccountLinkingRequiredException exception) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                exception.getMessage(),
+                                null
+                        )
+                );
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleUserNotFound(UserNotFoundException exception) {
         return ResponseEntity

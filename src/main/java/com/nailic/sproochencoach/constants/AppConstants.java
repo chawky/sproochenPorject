@@ -118,6 +118,7 @@ public final class AppConstants {
     }
 
     public static final class Roles {
+        public static final String USER = "USER";
         public static final String ADMIN = "ADMIN";
 
         private Roles() {
@@ -193,6 +194,7 @@ public final class AppConstants {
         public static final String SECURITY_JWT_COOKIE_SAME_SITE = "${security.jwt.cookie-same-site:Lax}";
         public static final String SECURITY_JWT_SECRET_KEY = "${security.jwt.secret-key}";
         public static final String SECURITY_JWT_EXPIRATION_TIME = "${security.jwt.expiration-time}";
+        public static final String SECURITY_GOOGLE_CLIENT_ID = "${security.google.client-id:}";
         public static final String STRIPE_API_KEY = "${stripe.api-key}";
         public static final String STRIPE_PRICE_ID = "${stripe.price-id}";
         public static final String STRIPE_SUCCESS_URL = "${stripe.success-url}";
