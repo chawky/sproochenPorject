@@ -137,9 +137,12 @@ public class StripePaymentService {
                     .setCancelAtPeriodEnd(true)
                     .build();
 
-            stripeClient.v1()
+            Subscription stripeSubscription = stripeClient.v1()
                     .subscriptions()
                     .update(stripeSubscriptionId, params);
+
+            subscriptionPlan.setCancelAtPeriodEnd(Boolean.TRUE.equals(stripeSubscription.getCancelAtPeriodEnd()));
+            subscriptionPlanRepo.save(subscriptionPlan);
         } catch (StripeException exception) {
             throw new StripePaymentException(
                     HttpStatus.BAD_GATEWAY.value(),
@@ -204,6 +207,7 @@ public class StripePaymentService {
                 ));
 
         localSub.setSubscriptionStatus(stripeSubscription.getStatus());
+        localSub.setCancelAtPeriodEnd(Boolean.TRUE.equals(stripeSubscription.getCancelAtPeriodEnd()));
 
         subscriptionPlanRepo.save(localSub);
     }
@@ -235,6 +239,7 @@ public class StripePaymentService {
                 ));
 
         localSub.setSubscriptionStatus(stripeSubscription.getStatus());
+        localSub.setCancelAtPeriodEnd(Boolean.TRUE.equals(stripeSubscription.getCancelAtPeriodEnd()));
 
         Long currentPeriodEnd = stripeSubscription
                 .getItems()
@@ -283,6 +288,7 @@ public class StripePaymentService {
         subscriptionPlan.setStripeCustomerId(session.getCustomer());
         subscriptionPlan.setPaymentStatus(session.getPaymentStatus());
         subscriptionPlan.setSubscriptionStatus(stripeSubscription.getStatus());
+        subscriptionPlan.setCancelAtPeriodEnd(Boolean.TRUE.equals(stripeSubscription.getCancelAtPeriodEnd()));
 
         subscriptionPlan.setStartedAt(
                 Instant.ofEpochSecond(stripeSubscription.getCreated())

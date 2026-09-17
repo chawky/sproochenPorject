@@ -26,6 +26,8 @@ public class SubscriptionPlan extends BaseModel {
     @Column
     private String subscriptionStatus;
     @Column
+    private boolean cancelAtPeriodEnd;
+    @Column
     private LocalDate startedAt;
     @Column
     private LocalDate currentPeriodEnd;

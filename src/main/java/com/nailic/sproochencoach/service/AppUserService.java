@@ -229,7 +229,7 @@ public class AppUserService {
 
     private SubscriptionInfoDto toSubscriptionInfoDto(SubscriptionPlan subscriptionPlan) {
         if (subscriptionPlan == null) {
-            return new SubscriptionInfoDto(false, null, null, null);
+            return new SubscriptionInfoDto(false, null, false, null, null);
         }
 
         String subscriptionStatus = subscriptionPlan.getSubscriptionStatus();
@@ -237,6 +237,7 @@ public class AppUserService {
         return new SubscriptionInfoDto(
                 subscriptionAccessService.hasSubscriptionAccess(subscriptionStatus),
                 subscriptionStatus,
+                subscriptionPlan.isCancelAtPeriodEnd(),
                 subscriptionPlan.getStartedAt(),
                 subscriptionPlan.getCurrentPeriodEnd()
         );

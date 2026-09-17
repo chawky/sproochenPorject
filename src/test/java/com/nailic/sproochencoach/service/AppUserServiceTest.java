@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.RequestUserDto;
 import com.nailic.sproochencoach.dto.ChangePasswordRequest;
 import com.nailic.sproochencoach.dto.SetPasswordRequest;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.model.SubscriptionPlan;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.RoleRepo;
 import org.junit.jupiter.api.Test;
@@ -245,6 +246,21 @@ class AppUserServiceTest {
 
         assertThat(service.toResponseUserDto(user).isHasPassword()).isTrue();
     }
+
+    @Test
+    void toResponseUserDtoExposesSubscriptionCancelAtPeriodEnd() {
+        AppUser user = verifiedUser();
+        SubscriptionPlan subscriptionPlan = new SubscriptionPlan();
+        subscriptionPlan.setSubscriptionStatus("active");
+        subscriptionPlan.setCancelAtPeriodEnd(true);
+        user.setSubscriptionPlan(subscriptionPlan);
+
+        AppUserService service = service(mock(AppUserRepo.class));
+
+        assertThat(service.toResponseUserDto(user).getSubscription().isSubscribed()).isTrue();
+        assertThat(service.toResponseUserDto(user).getSubscription().isCancelAtPeriodEnd()).isTrue();
+    }
+
     private AppUser verifiedUser() {
         AppUser user = new AppUser();
         user.setId(42);

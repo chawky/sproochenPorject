@@ -14,6 +14,7 @@ import java.time.LocalDate;
 public class SubscriptionInfoDto {
     private boolean subscribed;
     private String status;
+    private boolean cancelAtPeriodEnd;
     private LocalDate startedAt;
     private LocalDate currentPeriodEnd;
 }
