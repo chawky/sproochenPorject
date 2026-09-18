@@ -179,6 +179,10 @@ public final class AppConstants {
         public static final String EMAIL_FROM = "${email.from:}";
         public static final String EMAIL_RESEND_API_KEY = "${email.resend.api-key:}";
         public static final String EMAIL_RESEND_BASE_URL = "${email.resend.base-url}";
+        public static final String SUPPORT_EMAIL_RECIPIENT = "${support.email.recipient:support@letz-speak.com}";
+        public static final String SUPPORT_RATE_LIMIT_WINDOW_MS = "${support.rate-limit.window-ms:3600000}";
+        public static final String SUPPORT_RATE_LIMIT_MAX_EMAIL_REQUESTS_PER_WINDOW = "${support.rate-limit.max-email-requests-per-window:5}";
+        public static final String SUPPORT_RATE_LIMIT_MAX_IP_REQUESTS_PER_WINDOW = "${support.rate-limit.max-ip-requests-per-window:20}";
         public static final String SECURITY_OTP_EXPIRATION_MS = "${security.otp.expiration-ms}";
         public static final String SECURITY_OTP_RESEND_COOLDOWN_MS = "${security.otp.resend-cooldown-ms}";
         public static final String SECURITY_OTP_MAX_REQUESTS_PER_HOUR = "${security.otp.max-requests-per-hour}";

@@ -78,7 +78,8 @@ public class SecurityConfig {
                                 post("/api/users/verifyOtp"),
                                 post("/api/users/forgot-password"),
                                 post("/api/users/resend-password-reset"),
-                                post("/api/users/reset-password")
+                                post("/api/users/reset-password"),
+                                post("/api/support")
                         ))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
@@ -103,7 +104,8 @@ public class SecurityConfig {
                                 "/api/users/verifyOtp",
                                 "/api/users/forgot-password",
                                 "/api/users/resend-password-reset",
-                                "/api/users/reset-password")
+                                "/api/users/reset-password",
+                                "/api/support")
                         .permitAll()
                         .anyRequest().authenticated()
                 ).addFilterBefore(
@@ -135,7 +137,8 @@ public class SecurityConfig {
     }
 
     private static RequestMatcher post(String path) {
-        return request -> HttpMethod.POST.matches(request.getMethod()) && path.equals(request.getServletPath());
+        return request -> HttpMethod.POST.matches(request.getMethod())
+                && (path.equals(request.getServletPath()) || path.equals(request.getRequestURI()));
     }
 
     private static RequestMatcher bearerTokenRequestMatcher() {

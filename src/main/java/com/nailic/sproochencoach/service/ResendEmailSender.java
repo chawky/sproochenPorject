@@ -14,6 +14,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class ResendEmailSender implements EmailSender {
     private static final Logger log = LoggerFactory.getLogger(ResendEmailSender.class);
@@ -34,13 +38,24 @@ public class ResendEmailSender implements EmailSender {
 
     @Override
     public void send(String to, String subject, String text) {
+        send(to, subject, text, null, null);
+    }
+
+    @Override
+    public void send(
+            String to,
+            String subject,
+            String text,
+            String replyTo,
+            List<EmailAttachment> attachments
+    ) {
         validateConfiguration();
 
         try {
             resendRestClient.post()
                     .uri(AppConstants.ApiPaths.RESEND_EMAILS)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new ResendEmailRequest(from, to, subject, text))
+                    .body(requestBody(to, subject, text, replyTo, attachments))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException exception) {
@@ -63,6 +78,45 @@ public class ResendEmailSender implements EmailSender {
                     exception
             );
         }
+    }
+
+    private Map<String, Object> requestBody(
+            String to,
+            String subject,
+            String text,
+            String replyTo,
+            List<EmailAttachment> attachments
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("from", from);
+        body.put("to", to);
+        body.put("subject", subject);
+        body.put("text", text);
+
+        if (replyTo != null && !replyTo.isBlank()) {
+            body.put("reply_to", replyTo);
+        }
+
+        List<ResendEmailRequest.Attachment> resendAttachments = resendAttachments(attachments);
+        if (resendAttachments != null) {
+            body.put("attachments", resendAttachments);
+        }
+
+        return body;
+    }
+
+    private List<ResendEmailRequest.Attachment> resendAttachments(List<EmailAttachment> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return null;
+        }
+
+        return attachments.stream()
+                .map(attachment -> new ResendEmailRequest.Attachment(
+                        attachment.base64Content(),
+                        attachment.filename(),
+                        attachment.contentType()
+                ))
+                .toList();
     }
 
     private void validateConfiguration() {

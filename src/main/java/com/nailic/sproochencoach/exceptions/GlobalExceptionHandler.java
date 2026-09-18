@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -30,13 +31,15 @@ public class GlobalExceptionHandler {
     private static final String PAYMENT_UNAVAILABLE_MESSAGE =
             "We could not complete the payment action right now. Please try again.";
     private static final String EMAIL_UNAVAILABLE_MESSAGE =
-            "We could not send the verification email right now. Please try again.";
+            "We could not send the email right now. Please try again.";
     private static final String OTP_RATE_LIMIT_MESSAGE =
             "Please wait before requesting another verification code.";
     private static final String PASSWORD_RESET_RATE_LIMIT_MESSAGE =
             "Please wait before requesting another password reset code.";
     private static final String LOGIN_RATE_LIMIT_MESSAGE =
             "Too many failed login attempts. Please wait and try again.";
+    private static final String SUPPORT_RATE_LIMIT_MESSAGE =
+            "Too many support requests. Please wait and try again.";
     private static final String UNAUTHORIZED_MESSAGE = "Please log in and try again.";
     private static final String UNEXPECTED_ERROR_MESSAGE =
             "Something went wrong. Please try again.";
@@ -164,6 +167,15 @@ public class GlobalExceptionHandler {
                 .body(error(LOGIN_RATE_LIMIT_MESSAGE));
     }
 
+    @ExceptionHandler(SupportRateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSupportRateLimitExceeded(SupportRateLimitExceededException exception) {
+        log.warn("Handling SupportRateLimitExceededException. message={}", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(error(SUPPORT_RATE_LIMIT_MESSAGE));
+    }
+
     @ExceptionHandler(AiUsageRecordingException.class)
     public ResponseEntity<ApiResponse<Void>> handleAiUsageRecordingException(AiUsageRecordingException exception) {
         log.error("Handling AiUsageRecordingException. message={}", exception.getMessage(), exception);
@@ -244,6 +256,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_GATEWAY)
                 .body(error(EMAIL_UNAVAILABLE_MESSAGE));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
+        log.warn("Handling MaxUploadSizeExceededException. message={}", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(error("Each attachment must be at most 5 MB."));
     }
 
     @ExceptionHandler({
