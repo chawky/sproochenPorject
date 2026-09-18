@@ -48,11 +48,12 @@ public class SupportService {
             List<MultipartFile> attachments,
             String clientIp
     ) {
-        supportRateLimitService.checkAllowed(email, clientIp);
-
         String trimmedEmail = validateEmail(email);
         String trimmedSubject = validateText("Subject", subject, MAX_SUBJECT_LENGTH);
         String trimmedMessage = validateText("Message", message, MAX_MESSAGE_LENGTH);
+
+        supportRateLimitService.checkAllowed(trimmedEmail, clientIp);
+
         List<EmailAttachment> emailAttachments = validateAttachments(attachments);
 
         String text = """

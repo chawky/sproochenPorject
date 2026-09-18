@@ -20,6 +20,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class SupportServiceTest {
     @Test
@@ -86,7 +87,8 @@ class SupportServiceTest {
     @Test
     void rejectsInvalidEmail() {
         EmailSender emailSender = mock(EmailSender.class);
-        SupportService service = service(emailSender, mock(SupportRateLimitService.class));
+        SupportRateLimitService supportRateLimitService = mock(SupportRateLimitService.class);
+        SupportService service = service(emailSender, supportRateLimitService);
 
         assertThatThrownBy(() -> service.sendSupportRequest(
                 "not-an-email",
@@ -98,6 +100,7 @@ class SupportServiceTest {
                 .hasMessage("Email must be a valid email address.");
 
         verify(emailSender, never()).send(anyString(), anyString(), anyString(), anyString(), anyList());
+        verifyNoInteractions(supportRateLimitService);
     }
 
     @Test
@@ -113,6 +116,43 @@ class SupportServiceTest {
                 "203.0.113.10"
         )).isInstanceOf(BadRequestException.class)
                 .hasMessage("Subject is required.");
+    }
+
+    @Test
+    void rejectsSubjectOverBackendContractLimit() {
+        EmailSender emailSender = mock(EmailSender.class);
+        SupportService service = service(emailSender, mock(SupportRateLimitService.class));
+
+        assertThatThrownBy(() -> service.sendSupportRequest(
+                "user@example.com",
+                "a".repeat(151),
+                "Message",
+                null,
+                "203.0.113.10"
+        )).isInstanceOf(BadRequestException.class)
+                .hasMessage("Subject must be at most 150 characters.");
+    }
+
+    @Test
+    void acceptsSubjectAtBackendContractLimit() {
+        EmailSender emailSender = mock(EmailSender.class);
+        SupportService service = service(emailSender, mock(SupportRateLimitService.class));
+
+        service.sendSupportRequest(
+                "user@example.com",
+                "a".repeat(150),
+                "Message",
+                null,
+                "203.0.113.10"
+        );
+
+        verify(emailSender).send(
+                eq("support@letz-speak.com"),
+                eq("Support request: " + "a".repeat(150)),
+                anyString(),
+                eq("user@example.com"),
+                eq(List.of())
+        );
     }
 
     @Test

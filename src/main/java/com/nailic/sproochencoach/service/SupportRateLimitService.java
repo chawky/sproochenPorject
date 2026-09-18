@@ -36,8 +36,11 @@ public class SupportRateLimitService {
         LocalDateTime now = LocalDateTime.now(clock);
         Duration window = Duration.ofMillis(windowMs);
 
-        enforce(emailRequestHistories, normalizeEmail(email), maxEmailRequestsPerWindow, now, window, true);
+        cleanupStaleHistories(emailRequestHistories, now, window);
+        cleanupStaleHistories(ipRequestHistories, now, window);
+
         enforce(ipRequestHistories, normalizeClientIp(clientIp), maxIpRequestsPerWindow, now, window, false);
+        enforce(emailRequestHistories, normalizeEmail(email), maxEmailRequestsPerWindow, now, window, true);
     }
 
     private void enforce(
@@ -67,6 +70,14 @@ public class SupportRateLimitService {
         return email == null
                 ? ""
                 : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void cleanupStaleHistories(
+            ConcurrentMap<String, RequestHistory> histories,
+            LocalDateTime now,
+            Duration window
+    ) {
+        histories.entrySet().removeIf(entry -> entry.getValue().isStale(now, window));
     }
 
     private String normalizeClientIp(String clientIp) {
@@ -110,6 +121,11 @@ public class SupportRateLimitService {
             while (!requestTimes.isEmpty() && requestTimes.peekFirst().isBefore(windowStart)) {
                 requestTimes.removeFirst();
             }
+        }
+
+        private synchronized boolean isStale(LocalDateTime now, Duration window) {
+            prune(now, window);
+            return requestTimes.isEmpty();
         }
     }
 }
