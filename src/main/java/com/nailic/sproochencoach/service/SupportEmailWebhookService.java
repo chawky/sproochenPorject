@@ -2,8 +2,11 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.ResendReceivedEmailDto;
+import com.nailic.sproochencoach.dto.ResendReceivedEmailAttachmentDto;
 import com.nailic.sproochencoach.dto.ResendWebhookEventDto;
 import com.nailic.sproochencoach.model.SupportEmail;
+import com.nailic.sproochencoach.model.SupportEmailAttachment;
+import com.nailic.sproochencoach.repository.SupportEmailAttachmentRepo;
 import com.nailic.sproochencoach.repository.SupportEmailRepo;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -29,6 +32,7 @@ public class SupportEmailWebhookService {
     private final ResendWebhookVerifier resendWebhookVerifier;
     private final ResendReceivedEmailClient resendReceivedEmailClient;
     private final SupportEmailRepo supportEmailRepo;
+    private final SupportEmailAttachmentRepo supportEmailAttachmentRepo;
     private final ObjectMapper objectMapper;
 
     @Value(AppConstants.PropertyPlaceholders.SUPPORT_EMAIL_RECIPIENT)
@@ -95,10 +99,37 @@ public class SupportEmailWebhookService {
         supportEmail.setReceivedAt(parseDateTime(receivedEmail.getCreated_at()));
 
         try {
-            supportEmailRepo.save(supportEmail);
+            SupportEmail savedEmail = supportEmailRepo.save(supportEmail);
+            persistAttachments(savedEmail, receivedEmail.getAttachments());
         } catch (DataIntegrityViolationException exception) {
             log.debug("Ignoring concurrent duplicate Resend received email. emailId={}", emailId);
         }
+    }
+
+    private void persistAttachments(SupportEmail supportEmail, List<ResendReceivedEmailAttachmentDto> attachments) {
+        if (attachments == null || attachments.isEmpty()) {
+            return;
+        }
+
+        attachments.stream()
+                .filter(attachment -> StringUtils.hasText(attachment.getId()))
+                .map(attachment -> toAttachment(supportEmail, attachment))
+                .forEach(supportEmailAttachmentRepo::save);
+    }
+
+    private SupportEmailAttachment toAttachment(
+            SupportEmail supportEmail,
+            ResendReceivedEmailAttachmentDto resendAttachment
+    ) {
+        SupportEmailAttachment attachment = new SupportEmailAttachment();
+        attachment.setSupportEmail(supportEmail);
+        attachment.setResendAttachmentId(resendAttachment.getId());
+        attachment.setFilename(resendAttachment.getFilename());
+        attachment.setContentType(resendAttachment.getContent_type());
+        attachment.setContentDisposition(resendAttachment.getContent_disposition());
+        attachment.setContentId(resendAttachment.getContent_id());
+        attachment.setSizeBytes(resendAttachment.getSize());
+        return attachment;
     }
 
     private LocalDateTime parseDateTime(String value) {

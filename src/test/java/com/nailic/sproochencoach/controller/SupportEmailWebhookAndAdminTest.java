@@ -1,7 +1,12 @@
 package com.nailic.sproochencoach.controller;
 
 import com.nailic.sproochencoach.dto.ResendReceivedEmailDto;
+import com.nailic.sproochencoach.dto.ResendReceivedEmailAttachmentDto;
+import com.nailic.sproochencoach.dto.SupportEmailAttachmentDownload;
+import com.nailic.sproochencoach.exceptions.EmailDeliveryException;
 import com.nailic.sproochencoach.model.SupportEmail;
+import com.nailic.sproochencoach.model.SupportEmailAttachment;
+import com.nailic.sproochencoach.repository.SupportEmailAttachmentRepo;
 import com.nailic.sproochencoach.repository.SupportEmailRepo;
 import com.nailic.sproochencoach.service.ResendReceivedEmailClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -50,16 +59,20 @@ class SupportEmailWebhookAndAdminTest {
     @Autowired
     private SupportEmailRepo supportEmailRepo;
 
+    @Autowired
+    private SupportEmailAttachmentRepo supportEmailAttachmentRepo;
+
     @MockitoBean
     private ResendReceivedEmailClient resendReceivedEmailClient;
 
     @BeforeEach
     void setUp() {
+        supportEmailAttachmentRepo.deleteAll();
         supportEmailRepo.deleteAll();
     }
 
     @Test
-    void validResendWebhookStoresSupportEmail() throws Exception {
+    void supportEmailWithoutAttachmentsStillWorks() throws Exception {
         String emailId = "550e8400-e29b-41d4-a716-446655440000";
         String payload = payload(emailId);
         when(resendReceivedEmailClient.getReceivedEmail(emailId))
@@ -77,6 +90,26 @@ class SupportEmailWebhookAndAdminTest {
         assertThat(emails.get(0).getSubject()).isEqualTo("Need help");
         assertThat(emails.get(0).getTextBody()).isEqualTo("Plain support request");
         assertThat(emails.get(0).getHtmlBody()).isEqualTo("<p>Plain support request</p>");
+        assertThat(supportEmailAttachmentRepo.count()).isZero();
+    }
+
+    @Test
+    void emailWithAttachmentPersistsMetadata() throws Exception {
+        String emailId = "550e8400-e29b-41d4-a716-446655440010";
+        String payload = payload(emailId);
+        when(resendReceivedEmailClient.getReceivedEmail(emailId))
+                .thenReturn(receivedEmail(emailId, List.of("support@letz-speak.com"), List.of(attachment("att_1"))));
+
+        postSignedWebhook(payload).andExpect(status().isOk());
+
+        List<SupportEmailAttachment> attachments = supportEmailAttachmentRepo.findAll();
+        assertThat(attachments).hasSize(1);
+        assertThat(attachments.get(0).getResendAttachmentId()).isEqualTo("att_1");
+        assertThat(attachments.get(0).getFilename()).isEqualTo("invoice.pdf");
+        assertThat(attachments.get(0).getContentType()).isEqualTo("application/pdf");
+        assertThat(attachments.get(0).getContentDisposition()).isEqualTo("attachment");
+        assertThat(attachments.get(0).getContentId()).isEqualTo("cid-1");
+        assertThat(attachments.get(0).getSizeBytes()).isEqualTo(2048L);
     }
 
     @Test
@@ -98,12 +131,13 @@ class SupportEmailWebhookAndAdminTest {
         String emailId = "550e8400-e29b-41d4-a716-446655440001";
         String payload = payload(emailId);
         when(resendReceivedEmailClient.getReceivedEmail(emailId))
-                .thenReturn(receivedEmail(emailId, List.of("support@letz-speak.com")));
+                .thenReturn(receivedEmail(emailId, List.of("support@letz-speak.com"), List.of(attachment("att_duplicate"))));
 
         postSignedWebhook(payload).andExpect(status().isOk());
         postSignedWebhook(payload).andExpect(status().isOk());
 
         assertThat(supportEmailRepo.count()).isEqualTo(1);
+        assertThat(supportEmailAttachmentRepo.count()).isEqualTo(1);
         verify(resendReceivedEmailClient, times(1)).getReceivedEmail(emailId);
     }
 
@@ -127,10 +161,21 @@ class SupportEmailWebhookAndAdminTest {
     }
 
     @Test
+    @WithMockUser(roles = "USER")
+    void nonAdminCannotRetrieveAttachment() throws Exception {
+        SupportEmail email = savedEmail("download-email-id", "from@example.com", LocalDateTime.parse("2026-09-21T10:00:00"));
+        SupportEmailAttachment attachment = savedAttachment(email, "att_download");
+
+        mockMvc.perform(get("/api/admin/support-emails/{emailId}/attachments/{attachmentId}", email.getId(), attachment.getId()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanListReadAndMarkSupportEmailAsRead() throws Exception {
         SupportEmail older = savedEmail("old-email-id", "old@example.com", LocalDateTime.parse("2026-09-20T10:00:00"));
         SupportEmail newer = savedEmail("new-email-id", "new@example.com", LocalDateTime.parse("2026-09-21T10:00:00"));
+        SupportEmailAttachment attachment = savedAttachment(newer, "att_detail");
 
         mockMvc.perform(get("/api/admin/support-emails"))
                 .andExpect(status().isOk())
@@ -143,13 +188,64 @@ class SupportEmailWebhookAndAdminTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.toEmail").value("support@letz-speak.com"))
                 .andExpect(jsonPath("$.data.textBody").value("Message body"))
-                .andExpect(jsonPath("$.data.htmlBody").value("<p>Message body</p>"));
+                .andExpect(jsonPath("$.data.htmlBody").value("<p>Message body</p>"))
+                .andExpect(jsonPath("$.data.attachments[0].id").value(attachment.getId()))
+                .andExpect(jsonPath("$.data.attachments[0].filename").value("invoice.pdf"))
+                .andExpect(jsonPath("$.data.attachments[0].contentType").value("application/pdf"))
+                .andExpect(jsonPath("$.data.attachments[0].sizeBytes").value(2048));
 
         mockMvc.perform(patch("/api/admin/support-emails/{id}/read", newer.getId()).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.read").value(true));
 
         assertThat(supportEmailRepo.findById(newer.getId()).orElseThrow().isRead()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void attachmentCannotBeRetrievedThroughDifferentSupportEmailId() throws Exception {
+        SupportEmail owner = savedEmail("owner-email-id", "owner@example.com", LocalDateTime.parse("2026-09-21T10:00:00"));
+        SupportEmail other = savedEmail("other-email-id", "other@example.com", LocalDateTime.parse("2026-09-22T10:00:00"));
+        SupportEmailAttachment attachment = savedAttachment(owner, "att_owner");
+
+        mockMvc.perform(get("/api/admin/support-emails/{emailId}/attachments/{attachmentId}", other.getId(), attachment.getId()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanRetrieveValidAttachment() throws Exception {
+        SupportEmail email = savedEmail("resend-email-download-id", "from@example.com", LocalDateTime.parse("2026-09-21T10:00:00"));
+        SupportEmailAttachment attachment = savedAttachment(email, "resend-attachment-download-id");
+        when(resendReceivedEmailClient.downloadReceivedAttachment(
+                "resend-email-download-id",
+                "resend-attachment-download-id",
+                "invoice.pdf",
+                "application/pdf"
+        )).thenReturn(new SupportEmailAttachmentDownload("../invoice.pdf", "application/pdf", "pdf-bytes".getBytes(StandardCharsets.UTF_8)));
+
+        mockMvc.perform(get("/api/admin/support-emails/{emailId}/attachments/{attachmentId}", email.getId(), attachment.getId()))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoice.pdf\""))
+                .andExpect(content().bytes("pdf-bytes".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void resendAttachmentRetrievalFailureIsHandledCleanly() throws Exception {
+        SupportEmail email = savedEmail("resend-email-failure-id", "from@example.com", LocalDateTime.parse("2026-09-21T10:00:00"));
+        SupportEmailAttachment attachment = savedAttachment(email, "resend-attachment-failure-id");
+        when(resendReceivedEmailClient.downloadReceivedAttachment(
+                "resend-email-failure-id",
+                "resend-attachment-failure-id",
+                "invoice.pdf",
+                "application/pdf"
+        )).thenThrow(new EmailDeliveryException("Email provider rejected the received attachment request", HttpStatus.NOT_FOUND.value()));
+
+        mockMvc.perform(get("/api/admin/support-emails/{emailId}/attachments/{attachmentId}", email.getId(), attachment.getId()))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     private org.springframework.test.web.servlet.ResultActions postSignedWebhook(String payload) throws Exception {
@@ -176,6 +272,14 @@ class SupportEmailWebhookAndAdminTest {
     }
 
     private ResendReceivedEmailDto receivedEmail(String emailId, List<String> recipients) {
+        return receivedEmail(emailId, recipients, List.of());
+    }
+
+    private ResendReceivedEmailDto receivedEmail(
+            String emailId,
+            List<String> recipients,
+            List<ResendReceivedEmailAttachmentDto> attachments
+    ) {
         ResendReceivedEmailDto email = new ResendReceivedEmailDto();
         email.setId(emailId);
         email.setFrom("learner@example.com");
@@ -184,7 +288,19 @@ class SupportEmailWebhookAndAdminTest {
         email.setText("Plain support request");
         email.setHtml("<p>Plain support request</p>");
         email.setCreated_at("2026-09-21T10:00:00.000Z");
+        email.setAttachments(attachments);
         return email;
+    }
+
+    private ResendReceivedEmailAttachmentDto attachment(String id) {
+        ResendReceivedEmailAttachmentDto attachment = new ResendReceivedEmailAttachmentDto();
+        attachment.setId(id);
+        attachment.setFilename("invoice.pdf");
+        attachment.setContent_type("application/pdf");
+        attachment.setContent_disposition("attachment");
+        attachment.setContent_id("cid-1");
+        attachment.setSize(2048L);
+        return attachment;
     }
 
     private SupportEmail savedEmail(String resendEmailId, String fromEmail, LocalDateTime receivedAt) {
@@ -197,6 +313,18 @@ class SupportEmailWebhookAndAdminTest {
         supportEmail.setHtmlBody("<p>Message body</p>");
         supportEmail.setReceivedAt(receivedAt);
         return supportEmailRepo.save(supportEmail);
+    }
+
+    private SupportEmailAttachment savedAttachment(SupportEmail supportEmail, String resendAttachmentId) {
+        SupportEmailAttachment attachment = new SupportEmailAttachment();
+        attachment.setSupportEmail(supportEmail);
+        attachment.setResendAttachmentId(resendAttachmentId);
+        attachment.setFilename("invoice.pdf");
+        attachment.setContentType("application/pdf");
+        attachment.setContentDisposition("attachment");
+        attachment.setContentId("cid-1");
+        attachment.setSizeBytes(2048L);
+        return supportEmailAttachmentRepo.save(attachment);
     }
 
     private String signature(String messageId, String timestamp, String payload) throws Exception {

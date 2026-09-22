@@ -113,6 +113,7 @@ public final class AppConstants {
         public static final String ELEVENLABS_TEXT_TO_SPEECH = "/text-to-speech/";
         public static final String RESEND_EMAILS = "/emails";
         public static final String RESEND_RECEIVING_EMAIL = "/emails/receiving/{emailId}";
+        public static final String RESEND_RECEIVING_ATTACHMENT = "/emails/receiving/{emailId}/attachments/{attachmentId}";
 
         private ApiPaths() {
         }

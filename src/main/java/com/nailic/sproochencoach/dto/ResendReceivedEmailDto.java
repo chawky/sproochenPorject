@@ -17,4 +17,5 @@ public class ResendReceivedEmailDto {
     private String html;
     private String text;
     private String created_at;
+    private List<ResendReceivedEmailAttachmentDto> attachments;
 }

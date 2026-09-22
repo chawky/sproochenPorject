@@ -1,8 +1,12 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.dto.AdminSupportEmailDetailDto;
+import com.nailic.sproochencoach.dto.AdminSupportEmailAttachmentDto;
 import com.nailic.sproochencoach.dto.AdminSupportEmailListDto;
+import com.nailic.sproochencoach.dto.SupportEmailAttachmentDownload;
 import com.nailic.sproochencoach.model.SupportEmail;
+import com.nailic.sproochencoach.model.SupportEmailAttachment;
+import com.nailic.sproochencoach.repository.SupportEmailAttachmentRepo;
 import com.nailic.sproochencoach.repository.SupportEmailRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +18,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminSupportEmailService {
     private final SupportEmailRepo supportEmailRepo;
+    private final SupportEmailAttachmentRepo supportEmailAttachmentRepo;
+    private final ResendReceivedEmailClient resendReceivedEmailClient;
 
     @Transactional(readOnly = true)
     public List<AdminSupportEmailListDto> list() {
@@ -33,6 +39,20 @@ public class AdminSupportEmailService {
         SupportEmail supportEmail = findById(id);
         supportEmail.setRead(true);
         return toDetailDto(supportEmail);
+    }
+
+    @Transactional(readOnly = true)
+    public SupportEmailAttachmentDownload downloadAttachment(Long emailId, Long attachmentId) {
+        SupportEmail supportEmail = findById(emailId);
+        SupportEmailAttachment attachment = supportEmailAttachmentRepo.findByIdAndSupportEmailId(attachmentId, emailId)
+                .orElseThrow(() -> new com.nailic.sproochencoach.exceptions.UserNotFoundException("Support email attachment not found"));
+
+        return resendReceivedEmailClient.downloadReceivedAttachment(
+                supportEmail.getResendEmailId(),
+                attachment.getResendAttachmentId(),
+                attachment.getFilename(),
+                attachment.getContentType()
+        );
     }
 
     private SupportEmail findById(Long id) {
@@ -59,7 +79,26 @@ public class AdminSupportEmailService {
                 supportEmail.getTextBody(),
                 supportEmail.getHtmlBody(),
                 supportEmail.getReceivedAt(),
-                supportEmail.isRead()
+                supportEmail.isRead(),
+                attachments(supportEmail.getId())
+        );
+    }
+
+    private List<AdminSupportEmailAttachmentDto> attachments(Long supportEmailId) {
+        return supportEmailAttachmentRepo.findBySupportEmailIdOrderByIdAsc(supportEmailId)
+                .stream()
+                .map(this::toAttachmentDto)
+                .toList();
+    }
+
+    private AdminSupportEmailAttachmentDto toAttachmentDto(SupportEmailAttachment attachment) {
+        return new AdminSupportEmailAttachmentDto(
+                attachment.getId(),
+                attachment.getFilename(),
+                attachment.getContentType(),
+                attachment.getContentDisposition(),
+                attachment.getContentId(),
+                attachment.getSizeBytes()
         );
     }
 }

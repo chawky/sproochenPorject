@@ -3,8 +3,12 @@ package com.nailic.sproochencoach.controller;
 import com.nailic.sproochencoach.dto.AdminSupportEmailDetailDto;
 import com.nailic.sproochencoach.dto.AdminSupportEmailListDto;
 import com.nailic.sproochencoach.dto.ApiResponse;
+import com.nailic.sproochencoach.dto.SupportEmailAttachmentDownload;
 import com.nailic.sproochencoach.service.AdminSupportEmailService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -45,5 +49,53 @@ public class AdminSupportEmailController {
                 "Support email marked as read",
                 adminSupportEmailService.markRead(id)
         ));
+    }
+
+    @GetMapping("/{emailId}/attachments/{attachmentId}")
+    public ResponseEntity<byte[]> downloadAttachment(
+            @PathVariable Long emailId,
+            @PathVariable Long attachmentId
+    ) {
+        SupportEmailAttachmentDownload download =
+                adminSupportEmailService.downloadAttachment(emailId, attachmentId);
+
+        return ResponseEntity.ok()
+                .contentType(safeMediaType(download.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(safeFilename(download.filename()))
+                        .build()
+                        .toString())
+                .body(download.content());
+    }
+
+    private MediaType safeMediaType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (Exception exception) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
+
+    private String safeFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "attachment";
+        }
+
+        String cleaned = filename.replace("\\", "/");
+        int slashIndex = cleaned.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            cleaned = cleaned.substring(slashIndex + 1);
+        }
+
+        cleaned = cleaned.replaceAll("[\\r\\n\\t\\x00-\\x1F\\x7F]", "_").trim();
+        if (cleaned.isBlank() || cleaned.equals(".") || cleaned.equals("..")) {
+            return "attachment";
+        }
+
+        return cleaned.length() > 150 ? cleaned.substring(cleaned.length() - 150) : cleaned;
     }
 }

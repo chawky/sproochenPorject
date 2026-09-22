@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record AdminSupportEmailDetailDto(
         Long id,
@@ -13,6 +14,7 @@ public record AdminSupportEmailDetailDto(
         @Schema(description = "Raw untrusted inbound email HTML. Admin UI must sanitize or sandbox before rendering.")
         String htmlBody,
         LocalDateTime receivedAt,
-        boolean read
+        boolean read,
+        List<AdminSupportEmailAttachmentDto> attachments
 ) {
 }
