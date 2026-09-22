@@ -2,9 +2,11 @@ package com.nailic.sproochencoach.controller;
 
 import com.nailic.sproochencoach.dto.AdminSupportEmailDetailDto;
 import com.nailic.sproochencoach.dto.AdminSupportEmailListDto;
+import com.nailic.sproochencoach.dto.AdminSupportEmailSyncResultDto;
 import com.nailic.sproochencoach.dto.ApiResponse;
 import com.nailic.sproochencoach.dto.SupportEmailAttachmentDownload;
 import com.nailic.sproochencoach.service.AdminSupportEmailService;
+import com.nailic.sproochencoach.service.SupportEmailSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,6 +26,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminSupportEmailController {
     private final AdminSupportEmailService adminSupportEmailService;
+    private final SupportEmailSyncService supportEmailSyncService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<AdminSupportEmailListDto>>> list() {
@@ -48,6 +52,15 @@ public class AdminSupportEmailController {
                 true,
                 "Support email marked as read",
                 adminSupportEmailService.markRead(id)
+        ));
+    }
+
+    @PostMapping("/sync")
+    public ResponseEntity<ApiResponse<AdminSupportEmailSyncResultDto>> sync() {
+        return ResponseEntity.ok(new ApiResponse<>(
+                true,
+                "Support emails synchronized successfully",
+                supportEmailSyncService.sync()
         ));
     }
 

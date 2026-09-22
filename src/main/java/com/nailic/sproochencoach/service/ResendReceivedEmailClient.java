@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.ResendReceivedEmailDto;
 import com.nailic.sproochencoach.dto.ResendReceivedEmailAttachmentDto;
+import com.nailic.sproochencoach.dto.ResendReceivedEmailListDto;
 import com.nailic.sproochencoach.dto.SupportEmailAttachmentDownload;
 import com.nailic.sproochencoach.exceptions.EmailDeliveryException;
 import org.slf4j.Logger;
@@ -55,6 +56,43 @@ public class ResendReceivedEmailClient {
             log.error("Resend received email retrieval failed. emailId={}", emailId, exception);
             throw new EmailDeliveryException(
                     "Email provider received email request failed",
+                    HttpStatus.BAD_GATEWAY.value(),
+                    exception
+            );
+        }
+    }
+
+    public ResendReceivedEmailListDto listReceivedEmails(int limit, String after) {
+        validateConfiguration();
+
+        try {
+            return resendRestClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                                .path(AppConstants.ApiPaths.RESEND_RECEIVING_EMAILS)
+                                .queryParam("limit", limit);
+                        if (after != null && !after.isBlank()) {
+                            builder.queryParam("after", after);
+                        }
+                        return builder.build();
+                    })
+                    .retrieve()
+                    .body(ResendReceivedEmailListDto.class);
+        } catch (RestClientResponseException exception) {
+            log.error(
+                    "Resend received email list failed. statusCode={}",
+                    exception.getStatusCode().value(),
+                    exception
+            );
+            throw new EmailDeliveryException(
+                    "Email provider rejected the received email list request",
+                    exception.getStatusCode().value(),
+                    exception
+            );
+        } catch (RestClientException exception) {
+            log.error("Resend received email list failed.", exception);
+            throw new EmailDeliveryException(
+                    "Email provider received email list request failed",
                     HttpStatus.BAD_GATEWAY.value(),
                     exception
             );

@@ -12,4 +12,6 @@ public interface SupportEmailAttachmentRepo extends JpaRepository<SupportEmailAt
     List<SupportEmailAttachment> findBySupportEmailIdOrderByIdAsc(Long supportEmailId);
 
     Optional<SupportEmailAttachment> findByIdAndSupportEmailId(Long id, Long supportEmailId);
+
+    boolean existsBySupportEmailIdAndResendAttachmentId(Long supportEmailId, String resendAttachmentId);
 }
