@@ -28,7 +28,7 @@ public class ResendWebhookVerifier {
 
         try {
             Webhook webhook = new Webhook(webhookSecret);
-            webhook.verify(payload, java.net.http.HttpHeaders.of(headerMap(headers), (name, value) -> true));
+            webhook.verify(payload, headerMap(headers));
         } catch (Exception exception) {
             log.warn("Invalid Resend webhook signature. message={}", exception.getMessage());
             throw new BadRequestException("Invalid webhook signature");
