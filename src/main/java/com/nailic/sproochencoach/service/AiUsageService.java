@@ -2,7 +2,10 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
+import com.nailic.sproochencoach.dto.AdminAiUsageDashboardSummaryDto;
+import com.nailic.sproochencoach.dto.AdminAiUsageModelSummaryDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
+import com.nailic.sproochencoach.dto.AdminAiUsageTotalsDto;
 import com.nailic.sproochencoach.dto.PageResponseDto;
 import com.nailic.sproochencoach.exceptions.AiUsageRecordingException;
 import com.nailic.sproochencoach.model.AiUsage;
@@ -167,6 +170,27 @@ public class AiUsageService {
         );
     }
 
+    public AdminAiUsageDashboardSummaryDto getAdminAiUsageSummary() {
+        List<AdminAiUsageModelSummaryDto> models = aiUsageRepo.summarizeByProviderAndModel()
+                .stream()
+                .map(this::toAdminAiUsageModelSummaryDto)
+                .toList();
+
+        return new AdminAiUsageDashboardSummaryDto(
+                models,
+                new AdminAiUsageTotalsDto(
+                        models.stream().mapToLong(AdminAiUsageModelSummaryDto::requests).sum(),
+                        models.stream().mapToLong(AdminAiUsageModelSummaryDto::inputTokens).sum(),
+                        models.stream().mapToLong(AdminAiUsageModelSummaryDto::outputTokens).sum(),
+                        models.stream().mapToLong(AdminAiUsageModelSummaryDto::totalTokens).sum(),
+                        models.stream()
+                                .map(AdminAiUsageModelSummaryDto::estimatedCostUsd)
+                                .filter(Objects::nonNull)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                )
+        );
+    }
+
     private AdminAiUsageDto toAdminAiUsageDto(AiUsage usage) {
         return new AdminAiUsageDto(
                 usage.getId(),
@@ -181,6 +205,24 @@ public class AiUsageService {
                 usage.getEstimatedCostUsd(),
                 usage.getCreatedAt()
         );
+    }
+
+    private AdminAiUsageModelSummaryDto toAdminAiUsageModelSummaryDto(
+            AiUsageRepo.AiUsageModelSummaryProjection summary
+    ) {
+        return new AdminAiUsageModelSummaryDto(
+                summary.getProvider(),
+                summary.getModel(),
+                nullToZero(summary.getRequests()),
+                nullToZero(summary.getInputTokens()),
+                nullToZero(summary.getOutputTokens()),
+                nullToZero(summary.getTotalTokens()),
+                summary.getEstimatedCostUsd() == null ? BigDecimal.ZERO : summary.getEstimatedCostUsd()
+        );
+    }
+
+    private long nullToZero(Long value) {
+        return value == null ? 0L : value;
     }
 
     private long sumInputTokens(List<AiUsage> usageRecords) {

@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.controller;
 import com.nailic.sproochencoach.dto.AdminExerciseConfigDto;
 import com.nailic.sproochencoach.dto.AdminAuditLogDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
+import com.nailic.sproochencoach.dto.AdminAiUsageDashboardSummaryDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
 import com.nailic.sproochencoach.dto.AdminExerciseTypeConfigRequest;
 import com.nailic.sproochencoach.dto.AdminExerciseTypeOptionDto;
@@ -136,6 +137,17 @@ public class AdminController {
                         true,
                         "Admin user AI usage summary retrieved successfully",
                         usage
+                )
+        );
+    }
+
+    @GetMapping("/ai-usage/summary")
+    public ResponseEntity<ApiResponse<AdminAiUsageDashboardSummaryDto>> getAiUsageSummary() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Admin AI usage summary retrieved successfully",
+                        adminService.getAiUsageSummary()
                 )
         );
     }

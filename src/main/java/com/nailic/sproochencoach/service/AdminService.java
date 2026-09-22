@@ -6,6 +6,7 @@ import com.nailic.sproochencoach.dto.AdminLevelOptionDto;
 import com.nailic.sproochencoach.dto.AdminTopicOptionDto;
 import com.nailic.sproochencoach.dto.AdminAuditLogDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageDto;
+import com.nailic.sproochencoach.dto.AdminAiUsageDashboardSummaryDto;
 import com.nailic.sproochencoach.dto.AdminAiUsageSummaryDto;
 import com.nailic.sproochencoach.dto.AdminExerciseTypeConfigRequest;
 import com.nailic.sproochencoach.dto.AdminUserDetailDto;
@@ -188,6 +189,10 @@ public class AdminService {
         appUserService.findById(userId);
 
         return aiUsageService.getUserAiUsageSummary(userId);
+    }
+
+    public AdminAiUsageDashboardSummaryDto getAiUsageSummary() {
+        return aiUsageService.getAdminAiUsageSummary();
     }
 
     public AiQuotaStatusDto getUserAiQuota(Integer userId) {
