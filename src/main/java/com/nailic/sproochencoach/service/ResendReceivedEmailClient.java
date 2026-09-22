@@ -17,6 +17,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.net.URI;
+
 @Service
 public class ResendReceivedEmailClient {
     private static final Logger log = LoggerFactory.getLogger(ResendReceivedEmailClient.class);
@@ -113,7 +115,7 @@ public class ResendReceivedEmailClient {
         try {
             byte[] content = RestClient.create()
                     .get()
-                    .uri(attachment.getDownload_url())
+                    .uri(URI.create(attachment.getDownload_url()))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         throw new EmailDeliveryException(
