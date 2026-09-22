@@ -112,6 +112,7 @@ public final class AppConstants {
         public static final String GROQ_AUDIO_TRANSCRIPTIONS = "/audio/transcriptions";
         public static final String ELEVENLABS_TEXT_TO_SPEECH = "/text-to-speech/";
         public static final String RESEND_EMAILS = "/emails";
+        public static final String RESEND_RECEIVING_EMAIL = "/emails/receiving/{emailId}";
 
         private ApiPaths() {
         }
@@ -179,6 +180,7 @@ public final class AppConstants {
         public static final String EMAIL_FROM = "${email.from:}";
         public static final String EMAIL_RESEND_API_KEY = "${email.resend.api-key:}";
         public static final String EMAIL_RESEND_BASE_URL = "${email.resend.base-url}";
+        public static final String RESEND_WEBHOOK_SECRET = "${resend.webhook-secret:}";
         public static final String SUPPORT_EMAIL_RECIPIENT = "${support.email.recipient:support@letz-speak.com}";
         public static final String SUPPORT_RATE_LIMIT_WINDOW_MS = "${support.rate-limit.window-ms:3600000}";
         public static final String SUPPORT_RATE_LIMIT_MAX_EMAIL_REQUESTS_PER_WINDOW = "${support.rate-limit.max-email-requests-per-window:5}";

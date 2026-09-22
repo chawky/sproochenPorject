@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .ignoringRequestMatchers(
                                 bearerTokenRequestMatcher(),
                                 post("/api/payments/webhook"),
+                                post("/api/webhooks/resend"),
                                 post("/api/users/login"),
                                 post("/api/users/google-login"),
                                 post("/api/users/addUser"),
@@ -83,6 +84,7 @@ public class SecurityConfig {
                         ))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/webhooks/resend").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/v3/api-docs/**",
