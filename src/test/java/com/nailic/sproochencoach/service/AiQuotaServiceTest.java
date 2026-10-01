@@ -1,12 +1,16 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.config.AiQuotaProperties;
+import com.nailic.sproochencoach.config.AiRateLimitProperties;
 import com.nailic.sproochencoach.dto.AiQuotaFeatureStatusDto;
 import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
+import com.nailic.sproochencoach.exceptions.AiRateLimitExceededException;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AppUserRepo;
+import com.nailic.sproochencoach.repository.AiFeatureQuotaReservationRepo;
+import com.nailic.sproochencoach.repository.AiRateLimitRequestRepo;
 import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +47,8 @@ class AiQuotaServiceTest {
     @Mock private LoggedInUser loggedInUser;
     @Mock private UserPlanTierResolver userPlanTierResolver;
     @Mock private AppUserRepo appUserRepo;
+    @Mock private AiFeatureQuotaReservationRepo reservationRepo;
+    @Mock private AiRateLimitRequestRepo rateLimitRequestRepo;
 
     @Test
     void basicFeatureLimitsMatchProductRules() {
@@ -75,10 +81,27 @@ class AiQuotaServiceTest {
 
         AiQuotaService service = quotaService(CLOCK);
 
-        assertThatThrownBy(() -> service.checkCurrentUserQuota(AiQuotaFeature.SPEAKING))
+        assertThatThrownBy(() -> service.reserveCurrentUserQuota(AiQuotaFeature.SPEAKING))
                 .isInstanceOf(AiQuotaExceededException.class)
                 .hasMessage("You have reached your weekly Speaking limit. Your allowance resets on 2026-09-15.");
-        service.checkCurrentUserQuota(AiQuotaFeature.LISTENING);
+        service.reserveCurrentUserQuota(AiQuotaFeature.LISTENING);
+    }
+
+    @Test
+    void quotaStatusIncludesActiveReservations() {
+        AppUser user = basicUser();
+        stubCurrentUser(user, UserPlanTier.BASIC);
+        when(reservationRepo.countByUserIdAndFeatureAndWindowStart(
+                USER_ID, AiQuotaFeature.SPEAKING.name(), WINDOW_START
+        )).thenReturn(1L);
+
+        AiQuotaFeatureStatusDto speaking = quotaService(CLOCK).getCurrentUserQuotaStatus().getFeatures().stream()
+                .filter(feature -> feature.getFeature().equals("SPEAKING"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(speaking.getUsed()).isEqualTo(1);
+        assertThat(speaking.getRemaining()).isEqualTo(14);
     }
 
     @Test
@@ -90,7 +113,7 @@ class AiQuotaServiceTest {
         LocalDateTime nextEnd = LocalDateTime.of(2026, 9, 22, 0, 0);
         when(count(user, AiQuotaFeature.SPEAKING, nextStart, nextEnd)).thenReturn(0L);
 
-        quotaService(nextWindowClock).checkCurrentUserQuota(AiQuotaFeature.SPEAKING);
+        quotaService(nextWindowClock).reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
 
         verify(exerciseAttemptRepo).countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
                 USER_ID, AiQuotaFeature.SPEAKING.exerciseType(), nextStart, nextEnd
@@ -106,7 +129,7 @@ class AiQuotaServiceTest {
         stubCurrentUser(user, UserPlanTier.PREMIUM);
 
         AiQuotaService service = quotaService(CLOCK);
-        service.checkCurrentUserQuota(AiQuotaFeature.SPEAKING);
+        service.reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
         AiQuotaStatusDto status = service.getCurrentUserQuotaStatus();
 
         assertThat(status.getTier()).isEqualTo("PREMIUM");
@@ -128,9 +151,30 @@ class AiQuotaServiceTest {
         user.getRoles().add(admin);
         stubCurrentUser(user, UserPlanTier.PREMIUM);
 
-        quotaService(CLOCK).checkCurrentUserQuota(AiQuotaFeature.IMAGE_DESCRIPTION);
+        quotaService(CLOCK).reserveCurrentUserQuota(AiQuotaFeature.IMAGE_DESCRIPTION);
 
         verifyNoInteractions(exerciseAttemptRepo);
+    }
+
+    @Test
+    void premiumBypassesWeeklyQuotaButNotTechnicalRateLimit() {
+        AppUser user = basicUser();
+        stubCurrentUser(user, UserPlanTier.PREMIUM);
+        when(rateLimitRequestRepo.countByUserIdAndCreatedAtGreaterThanEqual(
+                USER_ID, LocalDateTime.of(2026, 9, 10, 9, 59)
+        )).thenReturn(20L);
+        AiRateLimitProperties rateProperties = new AiRateLimitProperties();
+        rateProperties.setMaxRequestsPerMinute(20);
+
+        AiQuotaService.QuotaReservation reservation = quotaService(CLOCK)
+                .reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
+        AiRateLimitService rateLimitService = new AiRateLimitService(
+                rateProperties, rateLimitRequestRepo, appUserRepo, loggedInUser, CLOCK
+        );
+
+        assertThat(reservation.id()).isNull();
+        assertThatThrownBy(rateLimitService::checkAndRecordCurrentUserRequest)
+                .isInstanceOf(AiRateLimitExceededException.class);
     }
 
     private Long count(AppUser user, AiQuotaFeature feature, LocalDateTime start, LocalDateTime end) {
@@ -141,7 +185,8 @@ class AiQuotaServiceTest {
 
     private void stubCurrentUser(AppUser user, UserPlanTier tier) {
         when(loggedInUser.getId()).thenReturn(USER_ID);
-        when(appUserRepo.findById(USER_ID)).thenReturn(Optional.of(user));
+        org.mockito.Mockito.lenient().when(appUserRepo.findById(USER_ID)).thenReturn(Optional.of(user));
+        org.mockito.Mockito.lenient().when(appUserRepo.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
         when(userPlanTierResolver.resolve(user)).thenReturn(tier);
     }
 
@@ -155,7 +200,7 @@ class AiQuotaServiceTest {
     private AiQuotaService quotaService(Clock clock) {
         return new AiQuotaService(
                 quotaProperties(), exerciseAttemptRepo, loggedInUser,
-                userPlanTierResolver, appUserRepo, clock
+                userPlanTierResolver, appUserRepo, clock, reservationRepo
         );
     }
 

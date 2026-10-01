@@ -36,6 +36,7 @@ public class ImageDescriptionService {
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
+    private final AiRateLimitService aiRateLimitService;
 
     public ImageDescriptionService(
             AiChatClient aiChatClient,
@@ -45,7 +46,8 @@ public class ImageDescriptionService {
             ObjectMapper objectMapper,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
-            AiQuotaService aiQuotaService
+            AiQuotaService aiQuotaService,
+            AiRateLimitService aiRateLimitService
     ) {
         this.promptFileService = promptFileService;
         this.aiChatClient = aiChatClient;
@@ -55,10 +57,13 @@ public class ImageDescriptionService {
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
+        this.aiRateLimitService = aiRateLimitService;
     }
 
     public GeneratedImageDto generateImage(ExerciseRequestDto request) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.IMAGE_DESCRIPTION);
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        AiQuotaService.QuotaReservation reservation = aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.IMAGE_DESCRIPTION);
+        try {
         ExerciseRequestDto normalizedRequest = exerciseConfigService.normalizedRequest(request);
         String promptInstruction = promptFileService.readWithAdminGuidance(IMAGE_GENERATION_PROMPT_KEY, imageGenerationPromptResource)
                 .formatted(
@@ -74,11 +79,18 @@ public class ImageDescriptionService {
         GeneratedImageDto generatedImageDto = new GeneratedImageDto();
         generatedImageDto.setImage(aiImageClient.generateImage(imageDescription));
         generatedImageDto.setImageDescription(imageDescription);
-        generatedImageDto.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION, normalizedRequest));
+        generatedImageDto.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION, normalizedRequest, reservation));
         return generatedImageDto;
+        } catch (RuntimeException exception) {
+            aiQuotaService.releaseReservation(reservation);
+            throw exception;
+        }
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription, Long audioDurationSeconds, Long attemptId) {
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        userProgressService.claimEvaluation(attemptId, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION);
+        try {
         String transcription = speechTranscriptionService.transcribeForEvaluation(
                 audio,
                 audioDurationSeconds,
@@ -112,6 +124,10 @@ public class ImageDescriptionService {
                     HttpStatus.BAD_GATEWAY.value(),
                     "AI provider returned invalid image description evaluation JSON"
             );
+        }
+        } catch (RuntimeException exception) {
+            userProgressService.releaseEvaluationClaim(attemptId, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION);
+            throw exception;
         }
     }
 }

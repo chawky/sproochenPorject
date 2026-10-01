@@ -30,31 +30,46 @@ public class UserProgressService {
     private final ExerciseAttemptRepo exerciseAttemptRepo;
     private final UserLoginDayService userLoginDayService;
     private final AppUserRepo appUserRepo;
+    private final AiQuotaService aiQuotaService;
 
     public UserProgressService(
             LoggedInUser loggedInUser,
             ExerciseAttemptRepo exerciseAttemptRepo,
             UserLoginDayService userLoginDayService,
-            AppUserRepo appUserRepo
+            AppUserRepo appUserRepo,
+            AiQuotaService aiQuotaService
     ) {
         this.loggedInUser = loggedInUser;
         this.exerciseAttemptRepo = exerciseAttemptRepo;
         this.userLoginDayService = userLoginDayService;
         this.appUserRepo = appUserRepo;
+        this.aiQuotaService = aiQuotaService;
     }
 
     @Transactional
     public Long recordGeneratedExercise(String exerciseType, ExerciseRequestDto request) {
-        AppUser user = loggedInUser.get();
+        return recordGeneratedExercise(exerciseType, request, null);
+    }
 
-        return recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), request.getType());
+    @Transactional
+    public Long recordGeneratedExercise(String exerciseType, ExerciseRequestDto request, AiQuotaService.QuotaReservation reservation) {
+        AppUser user = loggedInUser.get();
+        Long id = recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), request.getType());
+        aiQuotaService.consumeReservation(reservation);
+        return id;
     }
 
     @Transactional
     public Long recordGeneratedVocabularyExercise(String exerciseType, VocabularyRequestDto request) {
-        AppUser user = loggedInUser.get();
+        return recordGeneratedVocabularyExercise(exerciseType, request, null);
+    }
 
-        return recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), null);
+    @Transactional
+    public Long recordGeneratedVocabularyExercise(String exerciseType, VocabularyRequestDto request, AiQuotaService.QuotaReservation reservation) {
+        AppUser user = loggedInUser.get();
+        Long id = recordGeneratedExercise(user, exerciseType, request.getLevel(), request.getTopic(), null);
+        aiQuotaService.consumeReservation(reservation);
+        return id;
     }
 
     private Long recordGeneratedExercise(AppUser user, String exerciseType, String level, String topic, String answerType) {
@@ -78,7 +93,7 @@ public class UserProgressService {
             Long attemptId,
             String learnerAnswer
     ) {
-        ExerciseAttempt attempt = evaluationAttempt(attemptId, exerciseType);
+        ExerciseAttempt attempt = claimedEvaluationAttempt(attemptId, exerciseType);
 
         attempt.setStatus(ExerciseAttemptStatus.EVALUATED);
         attempt.setAverageRatingOverall(ratingOverall);
@@ -93,9 +108,23 @@ public class UserProgressService {
         exerciseAttemptRepo.save(attempt);
     }
 
+    @Transactional
+    public void claimEvaluation(Long attemptId, String expectedExerciseType) {
+        if (attemptId == null || exerciseAttemptRepo.claimEvaluation(
+                attemptId, loggedInUser.getId(), expectedExerciseType
+        ) != 1) {
+            throw new BadRequestException("Exercise attempt cannot be evaluated");
+        }
+    }
+
     @Transactional(readOnly = true)
-    public void requireUnevaluatedAttempt(Long attemptId, String expectedExerciseType) {
-        evaluationAttempt(attemptId, expectedExerciseType);
+    public void requireClaimedEvaluation(Long attemptId, String expectedExerciseType) {
+        claimedEvaluationAttempt(attemptId, expectedExerciseType);
+    }
+
+    @Transactional
+    public void releaseEvaluationClaim(Long attemptId, String expectedExerciseType) {
+        exerciseAttemptRepo.releaseEvaluation(attemptId, loggedInUser.getId(), expectedExerciseType);
     }
 
     @Transactional
@@ -249,7 +278,7 @@ public class UserProgressService {
         return attempt;
     }
 
-    private ExerciseAttempt evaluationAttempt(Long attemptId, String expectedExerciseType) {
+    private ExerciseAttempt claimedEvaluationAttempt(Long attemptId, String expectedExerciseType) {
         if (attemptId == null) {
             throw new BadRequestException("Exercise attempt ID is required for evaluation");
         }
@@ -258,8 +287,8 @@ public class UserProgressService {
         if (!expectedExerciseType.equals(attempt.getExerciseType())) {
             throw new BadRequestException("Exercise attempt type does not match this evaluation");
         }
-        if (attempt.getStatus() == ExerciseAttemptStatus.EVALUATED || attempt.getEvaluatedAt() != null) {
-            throw new BadRequestException("Exercise attempt has already been evaluated");
+        if (attempt.getStatus() != ExerciseAttemptStatus.EVALUATING || attempt.getEvaluatedAt() != null) {
+            throw new BadRequestException("Exercise attempt is not claimed for evaluation");
         }
 
         return attempt;

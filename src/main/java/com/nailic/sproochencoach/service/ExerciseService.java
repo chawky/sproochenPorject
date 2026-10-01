@@ -20,6 +20,7 @@ public class ExerciseService {
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
+    private final AiRateLimitService aiRateLimitService;
 
     public ExerciseService(
             AiChatClient aiChatClient,
@@ -27,7 +28,8 @@ public class ExerciseService {
             PromptFileService promptFileService,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
-            AiQuotaService aiQuotaService
+            AiQuotaService aiQuotaService,
+            AiRateLimitService aiRateLimitService
     ) {
         this.aiChatClient = aiChatClient;
         this.aiJsonParser = aiJsonParser;
@@ -35,10 +37,13 @@ public class ExerciseService {
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
+        this.aiRateLimitService = aiRateLimitService;
     }
 
     public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.TOPIC_EXERCISE);
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        AiQuotaService.QuotaReservation reservation = aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.TOPIC_EXERCISE);
+        try {
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         String promptTemplate = promptFileService.readWithAdminGuidance(PROMPT_KEY, exerciseGenerationPromptResource);
         String prompt = promptTemplate.formatted(
@@ -49,7 +54,11 @@ public class ExerciseService {
 
         String content = aiChatClient.complete(prompt, "text exercise");
         GeneratedExerciseDto exercise = aiJsonParser.parseObject(content, GeneratedExerciseDto.class, "exercise");
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.TEXT_EXERCISE, request));
+        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.TEXT_EXERCISE, request, reservation));
         return exercise;
+        } catch (RuntimeException exception) {
+            aiQuotaService.releaseReservation(reservation);
+            throw exception;
+        }
     }
 }

@@ -26,24 +26,29 @@ class ListeningServiceQuotaTest {
     @Mock private UserProgressService userProgressService;
     @Mock private ExerciseConfigService exerciseConfigService;
     @Mock private AiQuotaService aiQuotaService;
+    @Mock private AiRateLimitService aiRateLimitService;
 
     @Test
     void oneSuccessfulListeningGenerationRecordsOneListeningUsage() {
         ExerciseRequestDto request = request();
         AudioExerciseDto generated = new AudioExerciseDto();
+        AiQuotaService.QuotaReservation reservation = reservation();
         stubGeneration(request, generated);
-        when(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request))
+        when(aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.LISTENING)).thenReturn(reservation);
+        when(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request, reservation))
                 .thenReturn(99L);
 
         listeningService().generateListeningExercise(request);
 
-        verify(aiQuotaService).checkCurrentUserQuota(AiQuotaFeature.LISTENING);
-        verify(userProgressService).recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request);
+        verify(aiQuotaService).reserveCurrentUserQuota(AiQuotaFeature.LISTENING);
+        verify(userProgressService).recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request, reservation);
     }
 
     @Test
     void failedProviderRequestDoesNotRecordListeningUsage() {
         ExerciseRequestDto request = request();
+        AiQuotaService.QuotaReservation reservation = reservation();
+        when(aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.LISTENING)).thenReturn(reservation);
         when(exerciseConfigService.normalizedRequest(request)).thenReturn(request);
         when(promptFileService.readWithAdminGuidance(anyString(), nullable(Resource.class))).thenReturn("prompt");
         when(audioExerciseGenerationService.generateAudioExercise(
@@ -54,15 +59,16 @@ class ListeningServiceQuotaTest {
                 .isInstanceOf(AiProviderException.class);
 
         verify(userProgressService, never()).recordGeneratedExercise(
-                AppConstants.ExerciseAttemptTypes.LISTENING, request
+                AppConstants.ExerciseAttemptTypes.LISTENING, request, reservation
         );
+        verify(aiQuotaService).releaseReservation(reservation);
     }
 
     @Test
     void exhaustedListeningQuotaStopsBeforeAnyProviderCall() {
         ExerciseRequestDto request = request();
         doThrow(new com.nailic.sproochencoach.exceptions.AiQuotaExceededException("limit"))
-                .when(aiQuotaService).checkCurrentUserQuota(AiQuotaFeature.LISTENING);
+                .when(aiQuotaService).reserveCurrentUserQuota(AiQuotaFeature.LISTENING);
 
         assertThatThrownBy(() -> listeningService().generateListeningExercise(request))
                 .isInstanceOf(com.nailic.sproochencoach.exceptions.AiQuotaExceededException.class);
@@ -83,8 +89,12 @@ class ListeningServiceQuotaTest {
     private ListeningService listeningService() {
         return new ListeningService(
                 audioExerciseGenerationService, promptFileService, userProgressService,
-                exerciseConfigService, aiQuotaService
+                exerciseConfigService, aiQuotaService, aiRateLimitService
         );
+    }
+
+    private AiQuotaService.QuotaReservation reservation() {
+        return new AiQuotaService.QuotaReservation("reservation", AiQuotaFeature.LISTENING);
     }
 
     private ExerciseRequestDto request() {

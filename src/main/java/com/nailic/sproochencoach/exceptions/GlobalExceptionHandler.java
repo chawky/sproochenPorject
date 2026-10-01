@@ -138,6 +138,11 @@ public class GlobalExceptionHandler {
                 );
     }
 
+    @ExceptionHandler(AiRateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiRateLimitExceeded(AiRateLimitExceededException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error(exception.getMessage()));
+    }
+
     @ExceptionHandler(OtpRateLimitExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleOtpRateLimitExceeded(OtpRateLimitExceededException exception) {
         log.warn("Handling OtpRateLimitExceededException. message={}", exception.getMessage());

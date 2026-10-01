@@ -45,7 +45,7 @@ public class SpeechTranscriptionService {
             Long attemptId,
             String expectedExerciseType
     ) {
-        userProgressService.requireUnevaluatedAttempt(attemptId, expectedExerciseType);
+        userProgressService.requireClaimedEvaluation(attemptId, expectedExerciseType);
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add(AppConstants.GroqRequestFields.FILE, audio.getResource());

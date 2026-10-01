@@ -40,4 +40,16 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().message())
                 .isEqualTo("You already have an active subscription.");
     }
+
+    @Test
+    void aiTechnicalRateLimitReturnsDistinctTooManyRequestsMessage() {
+        ResponseEntity<ApiResponse<Void>> response = handler.handleAiRateLimitExceeded(
+                new AiRateLimitExceededException("Too many AI requests. Please wait a minute and try again.")
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message())
+                .isEqualTo("Too many AI requests. Please wait a minute and try again.");
+    }
 }

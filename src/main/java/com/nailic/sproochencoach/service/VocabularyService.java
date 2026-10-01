@@ -26,6 +26,7 @@ public class VocabularyService {
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
+    private final AiRateLimitService aiRateLimitService;
     @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_VOCABULARY_GENERATION)
     private Resource resource;
     public VocabularyService(
@@ -34,7 +35,8 @@ public class VocabularyService {
             PromptFileService promptFileService,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
-            AiQuotaService aiQuotaService
+            AiQuotaService aiQuotaService,
+            AiRateLimitService aiRateLimitService
 
     ) {
         this.aiChatClient = aiChatClient;
@@ -43,10 +45,13 @@ public class VocabularyService {
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
+        this.aiRateLimitService = aiRateLimitService;
     }
 
     public VocabularyDto generateVocabExercise(VocabularyRequestDto exerciseRequestDto) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.VOCABULARY);
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        AiQuotaService.QuotaReservation reservation = aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.VOCABULARY);
+        try {
         VocabularyRequestDto request = exerciseConfigService.normalizedVocabularyRequest(exerciseRequestDto);
         String topicLabel = exerciseConfigService.topicLabel(request.getTopic());
 
@@ -61,8 +66,12 @@ public class VocabularyService {
 
         VocabularyDto exercise = aiJsonParser.parseObject(content, VocabularyDto.class, "vocabulary exercise");
         validateVocabularyExercise(exercise);
-        exercise.setAttemptId(userProgressService.recordGeneratedVocabularyExercise(AppConstants.ExerciseAttemptTypes.VOCABULARY, request));
+        exercise.setAttemptId(userProgressService.recordGeneratedVocabularyExercise(AppConstants.ExerciseAttemptTypes.VOCABULARY, request, reservation));
         return exercise;
+        } catch (RuntimeException exception) {
+            aiQuotaService.releaseReservation(reservation);
+            throw exception;
+        }
     }
 
     private void validateVocabularyExercise(VocabularyDto exercise) {

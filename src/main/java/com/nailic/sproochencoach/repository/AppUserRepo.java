@@ -4,6 +4,8 @@ import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.SubscriptionPlan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -12,6 +14,10 @@ import java.util.Optional;
 
 @Repository
 public interface AppUserRepo extends JpaRepository<AppUser, Integer> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from AppUser user where user.id = :id")
+    Optional<AppUser> findByIdForUpdate(@Param("id") Integer id);
 
     AppUser findByUsernameAndEmail(String username, String email);
 

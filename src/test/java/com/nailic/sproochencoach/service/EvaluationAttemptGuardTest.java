@@ -3,6 +3,7 @@ package com.nailic.sproochencoach.service;
 import com.nailic.sproochencoach.constants.AppConstants;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
+import com.nailic.sproochencoach.exceptions.AiProviderException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.ExerciseAttempt;
 import com.nailic.sproochencoach.model.ExerciseAttemptStatus;
@@ -42,12 +43,15 @@ class EvaluationAttemptGuardTest {
     @Mock private AiChatClient aiChatClient;
     @Mock private PromptFileService promptFileService;
     @Mock private MultipartFile audio;
+    @Mock private AiRateLimitService aiRateLimitService;
+    @Mock private AiQuotaService aiQuotaService;
 
     @Test
     void firstEvaluationSucceeds() {
         ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
         UserProgressService progressService = progressService();
         SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
+        stubSuccessfulClaim(attempt);
         when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(attempt));
         when(transcriptionService.transcribeForEvaluation(
                 audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
@@ -65,11 +69,6 @@ class EvaluationAttemptGuardTest {
 
     @Test
     void secondEvaluationIsRejectedBeforeGroqOrKimi() {
-        ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
-        attempt.setStatus(ExerciseAttemptStatus.EVALUATED);
-        attempt.setEvaluatedAt(LocalDateTime.of(2026, 9, 10, 10, 0));
-        when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(attempt));
-
         UserProgressService progressService = progressService();
         RestClient groqClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
         SpeechTranscriptionService transcriptionService = new SpeechTranscriptionService(
@@ -79,15 +78,37 @@ class EvaluationAttemptGuardTest {
         assertThatThrownBy(() -> speakingService(progressService, transcriptionService)
                 .generateEvaluation(audio, 5L, 1L))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessage("Exercise attempt has already been evaluated");
+                .hasMessage("Exercise attempt cannot be evaluated");
 
         verifyNoInteractions(groqClient, aiChatClient);
+    }
+
+    @Test
+    void providerFailureReleasesEvaluationClaimForRetry() {
+        ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
+        UserProgressService progressService = progressService();
+        SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
+        stubSuccessfulClaim(attempt);
+        when(transcriptionService.transcribeForEvaluation(
+                audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
+        )).thenThrow(new AiProviderException(502, "Groq failed"));
+
+        assertThatThrownBy(() -> speakingService(progressService, transcriptionService)
+                .generateEvaluation(audio, 5L, 1L))
+                .isInstanceOf(AiProviderException.class);
+
+        verify(exerciseAttemptRepo).releaseEvaluation(
+                1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING
+        );
+        verifyNoInteractions(aiChatClient);
     }
 
     @Test
     void anotherValidAttemptCanStillBeEvaluated() {
         ExerciseAttempt first = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
         ExerciseAttempt second = attempt(2L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
+        stubSuccessfulClaim(first);
+        stubSuccessfulClaim(second);
         when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(first));
         when(exerciseAttemptRepo.findById(2L)).thenReturn(Optional.of(second));
         SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
@@ -111,24 +132,18 @@ class EvaluationAttemptGuardTest {
 
     @Test
     void userCannotEvaluateAnotherUsersAttempt() {
-        ExerciseAttempt attempt = attempt(1L, 99, AppConstants.ExerciseAttemptTypes.SPEAKING);
-        when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(attempt));
-
-        assertThatThrownBy(() -> progressService().requireUnevaluatedAttempt(
+        assertThatThrownBy(() -> progressService().claimEvaluation(
                 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).isInstanceOf(BadRequestException.class)
-                .hasMessage("Exercise attempt does not belong to the current user");
+                .hasMessage("Exercise attempt cannot be evaluated");
     }
 
     @Test
     void wrongAttemptTypeIsRejected() {
-        ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION);
-        when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(attempt));
-
-        assertThatThrownBy(() -> progressService().requireUnevaluatedAttempt(
+        assertThatThrownBy(() -> progressService().claimEvaluation(
                 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).isInstanceOf(BadRequestException.class)
-                .hasMessage("Exercise attempt type does not match this evaluation");
+                .hasMessage("Exercise attempt cannot be evaluated");
     }
 
     @Test
@@ -148,7 +163,8 @@ class EvaluationAttemptGuardTest {
                 new ObjectMapper(),
                 progressService,
                 mock(ExerciseConfigService.class),
-                mock(AiQuotaService.class)
+                aiQuotaService,
+                aiRateLimitService
         );
         service.generateEvaluation(audio, "Bild", 5L, 7L);
 
@@ -183,16 +199,26 @@ class EvaluationAttemptGuardTest {
                 mock(AudioExerciseGenerationService.class),
                 progressService,
                 mock(ExerciseConfigService.class),
-                mock(AiQuotaService.class),
-                transcriptionService
+                aiQuotaService,
+                transcriptionService,
+                aiRateLimitService
         );
     }
 
     private UserProgressService progressService() {
         AppUser currentUser = new AppUser();
         currentUser.setId(USER_ID);
-        when(loggedInUser.get()).thenReturn(currentUser);
-        return new UserProgressService(loggedInUser, exerciseAttemptRepo, userLoginDayService, appUserRepo);
+        org.mockito.Mockito.lenient().when(loggedInUser.get()).thenReturn(currentUser);
+        org.mockito.Mockito.lenient().when(loggedInUser.getId()).thenReturn(USER_ID);
+        return new UserProgressService(loggedInUser, exerciseAttemptRepo, userLoginDayService, appUserRepo, aiQuotaService);
+    }
+
+    private void stubSuccessfulClaim(ExerciseAttempt attempt) {
+        when(exerciseAttemptRepo.claimEvaluation(attempt.getId(), USER_ID, attempt.getExerciseType()))
+                .thenAnswer(invocation -> {
+                    attempt.setStatus(ExerciseAttemptStatus.EVALUATING);
+                    return 1;
+                });
     }
 
     private ExerciseAttempt attempt(Long id, Integer userId, String type) {

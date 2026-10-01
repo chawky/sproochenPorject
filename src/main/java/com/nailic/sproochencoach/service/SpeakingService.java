@@ -36,6 +36,7 @@ public class SpeakingService {
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
     private final SpeechTranscriptionService speechTranscriptionService;
+    private final AiRateLimitService aiRateLimitService;
 
     public SpeakingService(
             AiChatClient aiChatClient,
@@ -45,7 +46,8 @@ public class SpeakingService {
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
             AiQuotaService aiQuotaService,
-            SpeechTranscriptionService speechTranscriptionService
+            SpeechTranscriptionService speechTranscriptionService,
+            AiRateLimitService aiRateLimitService
     ) {
         this.aiChatClient = aiChatClient;
         this.objectMapper = objectMapper;
@@ -55,22 +57,29 @@ public class SpeakingService {
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
         this.speechTranscriptionService = speechTranscriptionService;
+        this.aiRateLimitService = aiRateLimitService;
     }
 
     public SpeakingDto generateSpeakingPrompt(ExerciseRequestDto exerciseRequestDto) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.SPEAKING);
-        ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
-        SpeakingDto exercise = audioExerciseGenerationService.generateAudioExercise(
-                request,
-                promptFileService.readWithAdminGuidance(SPEAKING_GENERATION_PROMPT_KEY, speakingGenerationPromptResource),
-                SpeakingDto.class,
-                "speaking prompt"
-        );
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.SPEAKING, request));
-        return exercise;
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        AiQuotaService.QuotaReservation reservation = aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
+        try {
+            ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
+            SpeakingDto exercise = audioExerciseGenerationService.generateAudioExercise(request,
+                    promptFileService.readWithAdminGuidance(SPEAKING_GENERATION_PROMPT_KEY, speakingGenerationPromptResource),
+                    SpeakingDto.class, "speaking prompt");
+            exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.SPEAKING, request, reservation));
+            return exercise;
+        } catch (RuntimeException exception) {
+            aiQuotaService.releaseReservation(reservation);
+            throw exception;
+        }
     }
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, Long audioDurationSeconds, Long attemptId) {
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        userProgressService.claimEvaluation(attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING);
+        try {
         String transcription = speechTranscriptionService.transcribeForEvaluation(
                 audio,
                 audioDurationSeconds,
@@ -104,6 +113,10 @@ public class SpeakingService {
                     HttpStatus.BAD_GATEWAY.value(),
                     "AI provider returned invalid evaluation JSON"
             );
+        }
+        } catch (RuntimeException exception) {
+            userProgressService.releaseEvaluationClaim(attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING);
+            throw exception;
         }
     }
 

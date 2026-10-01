@@ -20,23 +20,28 @@ public class ListeningService {
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
+    private final AiRateLimitService aiRateLimitService;
 
     public ListeningService(
             AudioExerciseGenerationService audioExerciseGenerationService,
             PromptFileService promptFileService,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
-            AiQuotaService aiQuotaService
+            AiQuotaService aiQuotaService,
+            AiRateLimitService aiRateLimitService
     ) {
         this.audioExerciseGenerationService = audioExerciseGenerationService;
         this.promptFileService = promptFileService;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
+        this.aiRateLimitService = aiRateLimitService;
     }
 
     public AudioExerciseDto generateListeningExercise(ExerciseRequestDto exerciseRequestDto) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.LISTENING);
+        aiRateLimitService.checkAndRecordCurrentUserRequest();
+        AiQuotaService.QuotaReservation reservation = aiQuotaService.reserveCurrentUserQuota(AiQuotaFeature.LISTENING);
+        try {
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         AudioExerciseDto exercise = audioExerciseGenerationService.generateAudioExercise(
                 request,
@@ -45,8 +50,12 @@ public class ListeningService {
                 "listening exercise"
         );
 
-        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request));
+        exercise.setAttemptId(userProgressService.recordGeneratedExercise(AppConstants.ExerciseAttemptTypes.LISTENING, request, reservation));
 
         return exercise;
+        } catch (RuntimeException exception) {
+            aiQuotaService.releaseReservation(reservation);
+            throw exception;
+        }
     }
 }

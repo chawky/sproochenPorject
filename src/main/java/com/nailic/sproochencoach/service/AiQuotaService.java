@@ -7,6 +7,8 @@ import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.model.AiFeatureQuotaReservation;
+import com.nailic.sproochencoach.repository.AiFeatureQuotaReservationRepo;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,19 +36,28 @@ public class AiQuotaService {
     private final UserPlanTierResolver userPlanTierResolver;
     private final AppUserRepo appUserRepo;
     private final Clock clock;
+    private final AiFeatureQuotaReservationRepo reservationRepo;
 
-    @Transactional(readOnly = true)
-    public void checkCurrentUserQuota(AiQuotaFeature feature) {
-        AppUser user = findUser(loggedInUser.getId());
+    @Transactional
+    public QuotaReservation reserveCurrentUserQuota(AiQuotaFeature feature) {
+        AppUser user = appUserRepo.findByIdForUpdate(loggedInUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         if (userPlanTierResolver.resolve(user) == UserPlanTier.PREMIUM) {
-            return;
+            return new QuotaReservation(null, feature);
         }
 
         QuotaWindow window = weeklyWindow(user);
         int limit = weeklyLimit(feature);
-        long used = countUsage(user.getId(), feature, window);
+        long used = countUsageWithReservations(user.getId(), feature, window);
         if (used < limit) {
-            return;
+            AiFeatureQuotaReservation reservation = new AiFeatureQuotaReservation();
+            reservation.setId(UUID.randomUUID().toString());
+            reservation.setUserId(user.getId());
+            reservation.setFeature(feature.name());
+            reservation.setWindowStart(window.start());
+            reservation.setCreatedAt(LocalDateTime.now(clock));
+            reservationRepo.save(reservation);
+            return new QuotaReservation(reservation.getId(), feature);
         }
 
         log.warn(
@@ -56,6 +68,28 @@ public class AiQuotaService {
                 "You have reached your weekly " + feature.displayName()
                         + " limit. Your allowance resets on " + window.end().toLocalDate() + "."
         );
+    }
+
+    @Transactional
+    public void releaseReservation(QuotaReservation reservation) {
+        deleteReservation(reservation, false);
+    }
+
+    @Transactional
+    public void consumeReservation(QuotaReservation reservation) {
+        deleteReservation(reservation, true);
+    }
+
+    private void deleteReservation(QuotaReservation reservation, boolean required) {
+        if (reservation == null || reservation.id() == null) {
+            return;
+        }
+        int deleted = reservationRepo.deleteOwned(
+                reservation.id(), loggedInUser.getId(), reservation.feature().name()
+        );
+        if (required && deleted != 1) {
+            throw new IllegalStateException("AI quota reservation is no longer valid");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +124,7 @@ public class AiQuotaService {
 
         QuotaWindow window = weeklyWindow(user);
         int limit = weeklyLimit(feature);
-        long used = countUsage(user.getId(), feature, window);
+        long used = countUsageWithReservations(user.getId(), feature, window);
         return new AiQuotaFeatureStatusDto(
                 feature.name(),
                 "weekly",
@@ -109,6 +143,11 @@ public class AiQuotaService {
                 window.start(),
                 window.end()
         );
+    }
+
+    private long countUsageWithReservations(Integer userId, AiQuotaFeature feature, QuotaWindow window) {
+        return countUsage(userId, feature, window)
+                + reservationRepo.countByUserIdAndFeatureAndWindowStart(userId, feature.name(), window.start());
     }
 
     private QuotaWindow weeklyWindow(AppUser user) {
@@ -135,5 +174,8 @@ public class AiQuotaService {
     }
 
     private record QuotaWindow(LocalDateTime start, LocalDateTime end) {
+    }
+
+    public record QuotaReservation(String id, AiQuotaFeature feature) {
     }
 }
