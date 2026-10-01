@@ -7,12 +7,20 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Repository
 public interface ExerciseAttemptRepo extends JpaRepository<ExerciseAttempt, Long> {
     List<ExerciseAttempt> findAllByUser_IdOrderByIdDesc(Integer userId);
 
     Page<ExerciseAttempt> findByUser_Id(Integer userId, Pageable pageable);
+
+    long countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+            Integer userId,
+            String exerciseType,
+            LocalDateTime fromInclusive,
+            LocalDateTime toExclusive
+    );
 
     void deleteByUser_Id(Integer userId);
 }

@@ -19,20 +19,24 @@ public class ListeningService {
     private final PromptFileService promptFileService;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
 
     public ListeningService(
             AudioExerciseGenerationService audioExerciseGenerationService,
             PromptFileService promptFileService,
             UserProgressService userProgressService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
     ) {
         this.audioExerciseGenerationService = audioExerciseGenerationService;
         this.promptFileService = promptFileService;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public AudioExerciseDto generateListeningExercise(ExerciseRequestDto exerciseRequestDto) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.LISTENING);
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         AudioExerciseDto exercise = audioExerciseGenerationService.generateAudioExercise(
                 request,

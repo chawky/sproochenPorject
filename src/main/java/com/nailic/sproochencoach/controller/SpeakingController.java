@@ -40,7 +40,7 @@ public class SpeakingController {
     public ResponseEntity<ApiResponse<SpeakingEvaluation>> receiveRecording(
             @RequestParam("audio") MultipartFile audio,
             @RequestParam(value = "durationSeconds", required = false) Long durationSeconds,
-            @RequestParam(value = "attemptId", required = false) Long attemptId
+            @RequestParam("attemptId") Long attemptId
     ) {
 
         SpeakingEvaluation exercise = speakingService.generateEvaluation(audio, durationSeconds, attemptId);

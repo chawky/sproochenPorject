@@ -133,14 +133,11 @@ public final class AppConstants {
         public static final String AI_OPENROUTER_COMPLETION_URI = "${ai.openrouter.completion-uri}";
         public static final String AI_OPENROUTER_API_KEY = "${ai.openrouter.api-key}";
         public static final String AI_OPENROUTER_BASE_URL = "${ai.openrouter.base-url}";
-        public static final String AI_OPENROUTER_IMAGE_URI = "${ai.openrouter.image-uri}";
-        public static final String AI_OPENROUTER_IMAGE_MODEL = "${ai.openrouter.image-model}";
         public static final String AI_GROQ_API_KEY = "${ai.groq.api-key}";
         public static final String AI_GROQ_BASE_URL = "${ai.groq.base-url}";
         public static final String AI_ELEVENLABS_API_KEY = "${ai.elevenlabs.api-key}";
         public static final String AI_ELEVENLABS_BASE_URL = "${ai.elevenlabs.base-url}";
         public static final String AI_ELEVENLABS_VOICE_ID = "${ai.elevenlabs.voice-id}";
-        public static final String AI_IMAGE_PROVIDER = "${ai.image.provider}";
         public static final String AI_KIMI_API_KEY = "${ai.kimi.api-key}";
         public static final String AI_KIMI_BASE_URL = "${ai.kimi.base-url}";
         public static final String AI_KIMI_BASE_IMAGE_URL = "${ai.kimi.base-image-url}";
@@ -160,10 +157,8 @@ public final class AppConstants {
         public static final String AI_PROMPTS_IMAGE_GENERATION = "${ai.prompts.image-generation}";
         public static final String AI_PROMPTS_IMAGE_DESCRIPTION_EVALUATION = "${ai.prompts.image-description-evaluation}";
         public static final String AI_PROMPTS_TRANSCRIPTION = "${ai.prompts.transcription}";
-        public static final String AI_CHAT_BASIC_PROVIDER = "${ai.chat.basic.provider}";
-        public static final String AI_CHAT_BASIC_MODEL = "${ai.chat.basic.model}";
-        public static final String AI_CHAT_PREMIUM_PROVIDER = "${ai.chat.premium.provider}";
-        public static final String AI_CHAT_PREMIUM_MODEL = "${ai.chat.premium.model}";
+        public static final String AI_CHAT_PROVIDER = "${ai.chat.provider}";
+        public static final String AI_CHAT_MODEL = "${ai.chat.model}";
         public static final String AI_PRICING_KIMI_K3_INPUT = "${ai.usage.pricing.kimi-k3.input-usd-per-million}";
         public static final String AI_PRICING_KIMI_K3_OUTPUT = "${ai.usage.pricing.kimi-k3.output-usd-per-million}";
         public static final String AI_PRICING_OPENROUTER_FREE = "${ai.usage.pricing.openrouter-free.usd}";

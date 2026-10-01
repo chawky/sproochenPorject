@@ -19,22 +19,26 @@ public class ExerciseService {
     private final PromptFileService promptFileService;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
 
     public ExerciseService(
             AiChatClient aiChatClient,
             AiJsonParser aiJsonParser,
             PromptFileService promptFileService,
             UserProgressService userProgressService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
     ) {
         this.aiChatClient = aiChatClient;
         this.aiJsonParser = aiJsonParser;
         this.promptFileService = promptFileService;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public GeneratedExerciseDto generateExercise(ExerciseRequestDto exerciseRequestDto) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.TOPIC_EXERCISE);
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         String promptTemplate = promptFileService.readWithAdminGuidance(PROMPT_KEY, exerciseGenerationPromptResource);
         String prompt = promptTemplate.formatted(

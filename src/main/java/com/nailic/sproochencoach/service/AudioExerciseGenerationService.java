@@ -23,22 +23,19 @@ public class AudioExerciseGenerationService {
     private final AiJsonParser aiJsonParser;
     private final AiUsageService aiUsageService;
     private final ExerciseConfigService exerciseConfigService;
-    private final AiQuotaService aiQuotaService;
 
     public AudioExerciseGenerationService(
             AiChatClient aiChatClient,
             @Qualifier(AppConstants.RestClientBeans.TTS) RestClient ttsRestClient,
             AiJsonParser aiJsonParser,
             AiUsageService aiUsageService,
-            ExerciseConfigService exerciseConfigService,
-            AiQuotaService aiQuotaService
+            ExerciseConfigService exerciseConfigService
     ) {
         this.aiChatClient = aiChatClient;
         this.ttsRestClient = ttsRestClient;
         this.aiJsonParser = aiJsonParser;
         this.aiUsageService = aiUsageService;
         this.exerciseConfigService = exerciseConfigService;
-        this.aiQuotaService = aiQuotaService;
     }
 
     public <T extends AudioExerciseDto> T generateAudioExercise(
@@ -47,7 +44,6 @@ public class AudioExerciseGenerationService {
             Class<T> responseType,
             String exerciseName
     ) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.TTS);
         ExerciseRequestDto request = exerciseConfigService.normalizedRequest(exerciseRequestDto);
         String prompt = promptTemplate.formatted(
                 request.getLevel(),

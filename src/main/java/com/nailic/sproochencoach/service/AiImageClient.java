@@ -18,21 +18,11 @@ import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class AiImageClient {
     private static final Logger log = LoggerFactory.getLogger(AiImageClient.class);
-
-    @Value(AppConstants.PropertyPlaceholders.AI_IMAGE_PROVIDER)
-    private String provider;
-
-    @Value(AppConstants.PropertyPlaceholders.AI_OPENROUTER_IMAGE_URI)
-    private String openRouterImageUri;
-
-    @Value(AppConstants.PropertyPlaceholders.AI_OPENROUTER_IMAGE_MODEL)
-    private String openRouterImageModel;
 
     @Value(AppConstants.PropertyPlaceholders.AI_KIMI_IMAGE_URI)
     private String kimiImageUri;
@@ -40,36 +30,22 @@ public class AiImageClient {
     @Value(AppConstants.PropertyPlaceholders.AI_KIMI_IMAGE_MODEL)
     private String kimiImageModel;
 
-    private final RestClient openRouterRestClient;
     private final RestClient kimiImageRestClient;
     private final ObjectMapper objectMapper;
     private final AiUsageService aiUsageService;
-    private final AiQuotaService aiQuotaService;
 
     public AiImageClient(
-            @Qualifier(AppConstants.RestClientBeans.OPEN_ROUTER) RestClient openRouterRestClient,
             @Qualifier(AppConstants.RestClientBeans.KIMI_IMAGE_GENERATION) RestClient kimiImageRestClient,
             ObjectMapper objectMapper,
-            AiUsageService aiUsageService,
-            AiQuotaService aiQuotaService
+            AiUsageService aiUsageService
     ) {
-        this.openRouterRestClient = openRouterRestClient;
         this.kimiImageRestClient = kimiImageRestClient;
         this.objectMapper = objectMapper;
         this.aiUsageService = aiUsageService;
-        this.aiQuotaService = aiQuotaService;
     }
 
     public byte[] generateImage(String userPrompt) {
-        aiQuotaService.checkCurrentUserQuota(AiQuotaCategory.IMAGE);
-        return switch (provider.toLowerCase(Locale.ROOT)) {
-            case AppConstants.Providers.OPEN_ROUTER -> generateImageWithOpenRouter(userPrompt);
-            case AppConstants.Providers.KIMI -> generateImageWithKimi(userPrompt);
-            default -> throw new AiProviderException(
-                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Unsupported AI provider: " + provider
-            );
-        };
+        return generateImageWithKimi(userPrompt);
     }
 
     private byte[] generateImageWithKimi(String userPrompt) {
@@ -98,38 +74,6 @@ public class AiImageClient {
         byte[] image = extractImageBytes(responseMap, AppConstants.ProviderDisplayNames.KIMI_IMAGE, requestName);
         recordKimiImageUsage(responseMap, requestName);
         return image;
-    }
-
-    private byte[] generateImageWithOpenRouter(String userPrompt) {
-        String requestName = "image generation";
-        log.info("AI request. provider={}, model={}, request={}", AppConstants.Providers.OPEN_ROUTER_IMAGE, openRouterImageModel, requestName);
-
-        Map<String, Object> requestBody = Map.of(
-                "model", openRouterImageModel,
-                "prompt", userPrompt
-        );
-
-        String responseBody = openRouterRestClient.post()
-                .uri(openRouterImageUri)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(requestBody)
-                .retrieve()
-                .onStatus(
-                        HttpStatusCode::isError,
-                        (request, response) -> handleError(AppConstants.ProviderDisplayNames.OPEN_ROUTER_IMAGE, response.getStatusCode(), response.getBody().readAllBytes(), requestName)
-                )
-                .body(String.class);
-
-        byte[] image = extractImageBytes(responseBody, AppConstants.ProviderDisplayNames.OPEN_ROUTER_IMAGE, requestName);
-        aiUsageService.recordImageUsage(AppConstants.Providers.OPEN_ROUTER_IMAGE, openRouterImageModel, requestName);
-        return image;
-    }
-
-    private byte[] extractImageBytes(String responseBody, String providerName, String requestName) {
-        Map<?, ?> responseMap = readResponseMap(responseBody, providerName, requestName);
-
-        return extractImageBytes(responseMap, providerName, requestName);
     }
 
     private byte[] extractImageBytes(Map<?, ?> responseMap, String providerName, String requestName) {

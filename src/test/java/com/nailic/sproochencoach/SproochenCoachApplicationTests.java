@@ -43,6 +43,18 @@ class SproochenCoachApplicationTests {
   }
 
   @Test
+  void premiumQuotaFieldsAreDocumentedAsNullable() throws Exception {
+    String propertyPath = "$.components.schemas.AiQuotaFeatureStatusDto.properties.";
+
+    mockMvc.perform(get("/v3/api-docs"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(propertyPath + "weeklyLimit.type[1]").value("null"))
+        .andExpect(jsonPath(propertyPath + "remaining.type[1]").value("null"))
+        .andExpect(jsonPath(propertyPath + "windowStart.type[1]").value("null"))
+        .andExpect(jsonPath(propertyPath + "windowEnd.type[1]").value("null"));
+  }
+
+  @Test
   void cookieLogoutRequiresCsrfToken() throws Exception {
     mockMvc.perform(post("/api/users/logout"))
         .andExpect(status().isForbidden());

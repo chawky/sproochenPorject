@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.config;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -15,34 +16,32 @@ import org.springframework.validation.annotation.Validated;
 @Setter
 public class AiQuotaProperties {
     @Valid
-    private TierQuota basic = new TierQuota();
-
-    @Valid
-    private TierQuota premium = new TierQuota();
+    private BasicQuota basic = new BasicQuota();
 
     @Getter
     @Setter
-    public static class TierQuota {
+    public static class BasicQuota {
         @Valid
-        private FeatureQuota chat = new FeatureQuota();
+        private FeatureQuota speaking = new FeatureQuota();
 
         @Valid
-        private FeatureQuota tts = new FeatureQuota();
+        private FeatureQuota listening = new FeatureQuota();
 
         @Valid
-        private FeatureQuota stt = new FeatureQuota();
+        private FeatureQuota imageDescription = new FeatureQuota();
 
         @Valid
-        private FeatureQuota image = new FeatureQuota();
+        private FeatureQuota vocabulary = new FeatureQuota();
+
+        @Valid
+        private FeatureQuota topicExercise = new FeatureQuota();
     }
 
     @Getter
     @Setter
     public static class FeatureQuota {
         @Min(0)
-        private Integer dailyLimit;
-
-        @Min(0)
-        private Integer monthlyLimit;
+        @NotNull
+        private Integer weeklyLimit;
     }
 }

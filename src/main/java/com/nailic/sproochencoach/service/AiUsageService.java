@@ -59,15 +59,6 @@ public class AiUsageService {
         );
     }
 
-    public long countUserQuotaUsage(
-            Integer userId,
-            AiQuotaCategory category,
-            LocalDateTime fromInclusive,
-            LocalDateTime toExclusive
-    ) {
-        return aiUsageRepo.count(quotaUsageFilters(userId, category, fromInclusive, toExclusive));
-    }
-
     public void recordImageUsage(String provider, String model, String requestName) {
         recordUsage(provider, model, requestName, null, null, null, AppConstants.UsageUnits.IMAGE, 1L);
     }
@@ -328,47 +319,4 @@ public class AiUsageService {
         };
     }
 
-    private Specification<AiUsage> quotaUsageFilters(
-            Integer userId,
-            AiQuotaCategory category,
-            LocalDateTime fromInclusive,
-            LocalDateTime toExclusive
-    ) {
-        return (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
-            predicates.add(quotaCategoryPredicate(category, root, criteriaBuilder));
-
-            if (fromInclusive != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), fromInclusive));
-            }
-
-            if (toExclusive != null) {
-                predicates.add(criteriaBuilder.lessThan(root.get("createdAt"), toExclusive));
-            }
-
-            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
-        };
-    }
-
-    private Predicate quotaCategoryPredicate(
-            AiQuotaCategory category,
-            jakarta.persistence.criteria.Root<AiUsage> root,
-            jakarta.persistence.criteria.CriteriaBuilder criteriaBuilder
-    ) {
-        return switch (category) {
-            case CHAT -> criteriaBuilder.lower(root.get("provider"))
-                    .in(List.of(AppConstants.Providers.OPEN_ROUTER, AppConstants.Providers.KIMI));
-            case TTS -> criteriaBuilder.equal(
-                    criteriaBuilder.lower(root.get("provider")),
-                    AppConstants.Providers.ELEVENLABS
-            );
-            case STT -> criteriaBuilder.equal(
-                    criteriaBuilder.lower(root.get("provider")),
-                    AppConstants.Providers.GROQ
-            );
-            case IMAGE -> criteriaBuilder.lower(root.get("provider"))
-                    .in(List.of(AppConstants.Providers.OPEN_ROUTER_IMAGE, AppConstants.Providers.KIMI_IMAGE));
-        };
-    }
 }

@@ -31,30 +31,34 @@ public class ImageDescriptionService {
     private final PromptFileService promptFileService;
     private final AiChatClient aiChatClient;
     private final AiImageClient aiImageClient;
-    private final SpeakingService speakingService;
+    private final SpeechTranscriptionService speechTranscriptionService;
     private final ObjectMapper objectMapper;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
 
     public ImageDescriptionService(
             AiChatClient aiChatClient,
             AiImageClient aiImageClient,
             PromptFileService promptFileService,
-            SpeakingService speakingService,
+            SpeechTranscriptionService speechTranscriptionService,
             ObjectMapper objectMapper,
             UserProgressService userProgressService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
     ) {
         this.promptFileService = promptFileService;
         this.aiChatClient = aiChatClient;
         this.aiImageClient = aiImageClient;
-        this.speakingService = speakingService;
+        this.speechTranscriptionService = speechTranscriptionService;
         this.objectMapper = objectMapper;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public GeneratedImageDto generateImage(ExerciseRequestDto request) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.IMAGE_DESCRIPTION);
         ExerciseRequestDto normalizedRequest = exerciseConfigService.normalizedRequest(request);
         String promptInstruction = promptFileService.readWithAdminGuidance(IMAGE_GENERATION_PROMPT_KEY, imageGenerationPromptResource)
                 .formatted(
@@ -74,16 +78,13 @@ public class ImageDescriptionService {
         return generatedImageDto;
     }
 
-    public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription) {
-        return generateEvaluation(audio, imageDescription, null);
-    }
-
-    public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription, Long audioDurationSeconds) {
-        return generateEvaluation(audio, imageDescription, audioDurationSeconds, null);
-    }
-
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, String imageDescription, Long audioDurationSeconds, Long attemptId) {
-        String transcription = speakingService.transcribeAudio(audio, audioDurationSeconds);
+        String transcription = speechTranscriptionService.transcribeForEvaluation(
+                audio,
+                audioDurationSeconds,
+                attemptId,
+                AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
+        );
 
         String content = aiChatClient.complete(
                 promptFileService.readWithAdminGuidance(IMAGE_EVALUATION_PROMPT_KEY, imageDescriptionEvaluationPromptResource)

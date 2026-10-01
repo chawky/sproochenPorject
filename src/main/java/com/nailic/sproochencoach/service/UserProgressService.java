@@ -71,16 +71,6 @@ public class UserProgressService {
     }
 
     @Transactional
-    public void recordEvaluation(String exerciseType, String exerciseName, double ratingOverall) {
-        recordEvaluation(exerciseType, exerciseName, ratingOverall, null);
-    }
-
-    @Transactional
-    public void recordEvaluation(String exerciseType, String exerciseName, double ratingOverall, Long attemptId) {
-        recordEvaluation(exerciseType, exerciseName, ratingOverall, attemptId, null);
-    }
-
-    @Transactional
     public void recordEvaluation(
             String exerciseType,
             String exerciseName,
@@ -88,9 +78,7 @@ public class UserProgressService {
             Long attemptId,
             String learnerAnswer
     ) {
-        ExerciseAttempt attempt = attemptId == null
-                ? newEvaluationAttempt(exerciseType, exerciseName)
-                : currentUserAttempt(attemptId);
+        ExerciseAttempt attempt = evaluationAttempt(attemptId, exerciseType);
 
         attempt.setStatus(ExerciseAttemptStatus.EVALUATED);
         attempt.setAverageRatingOverall(ratingOverall);
@@ -103,6 +91,11 @@ public class UserProgressService {
         }
 
         exerciseAttemptRepo.save(attempt);
+    }
+
+    @Transactional(readOnly = true)
+    public void requireUnevaluatedAttempt(Long attemptId, String expectedExerciseType) {
+        evaluationAttempt(attemptId, expectedExerciseType);
     }
 
     @Transactional
@@ -152,18 +145,6 @@ public class UserProgressService {
         dashboard.setSkillProgress(skillProgress(attempts));
 
         return dashboard;
-    }
-
-    private ExerciseAttempt newEvaluationAttempt(String exerciseType, String exerciseName) {
-        AppUser user = loggedInUser.get();
-
-        ExerciseAttempt attempt = new ExerciseAttempt();
-        attempt.setUser(user);
-        attempt.setExerciseType(exerciseType);
-        attempt.setExerciseName(exerciseName);
-        attempt.setGeneratedAt(LocalDateTime.now());
-
-        return attempt;
     }
 
     private String buildExerciseName(ExerciseRequestDto request) {
@@ -263,6 +244,22 @@ public class UserProgressService {
 
         if (!attempt.getUser().getId().equals(user.getId())) {
             throw new BadRequestException("Exercise attempt does not belong to the current user");
+        }
+
+        return attempt;
+    }
+
+    private ExerciseAttempt evaluationAttempt(Long attemptId, String expectedExerciseType) {
+        if (attemptId == null) {
+            throw new BadRequestException("Exercise attempt ID is required for evaluation");
+        }
+
+        ExerciseAttempt attempt = currentUserAttempt(attemptId);
+        if (!expectedExerciseType.equals(attempt.getExerciseType())) {
+            throw new BadRequestException("Exercise attempt type does not match this evaluation");
+        }
+        if (attempt.getStatus() == ExerciseAttemptStatus.EVALUATED || attempt.getEvaluatedAt() != null) {
+            throw new BadRequestException("Exercise attempt has already been evaluated");
         }
 
         return attempt;

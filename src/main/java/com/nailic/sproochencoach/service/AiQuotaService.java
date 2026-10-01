@@ -1,14 +1,14 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.config.AiQuotaProperties;
-import com.nailic.sproochencoach.config.AiQuotaProperties.FeatureQuota;
-import com.nailic.sproochencoach.config.AiQuotaProperties.TierQuota;
-import com.nailic.sproochencoach.dto.AiQuotaCategoryStatusDto;
+import com.nailic.sproochencoach.config.AiQuotaProperties.BasicQuota;
+import com.nailic.sproochencoach.dto.AiQuotaFeatureStatusDto;
 import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
 import com.nailic.sproochencoach.exceptions.UserNotFoundException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.repository.AppUserRepo;
+import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,174 +18,122 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 
 @Service
 @RequiredArgsConstructor
 public class AiQuotaService {
     private static final Logger log = LoggerFactory.getLogger(AiQuotaService.class);
+    private static final int WINDOW_DAYS = 7;
 
     private final AiQuotaProperties aiQuotaProperties;
-    private final AiUsageService aiUsageService;
+    private final ExerciseAttemptRepo exerciseAttemptRepo;
     private final LoggedInUser loggedInUser;
     private final UserPlanTierResolver userPlanTierResolver;
     private final AppUserRepo appUserRepo;
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public void checkCurrentUserQuota(AiQuotaCategory category) {
-        Integer userId = loggedInUser.getId();
-        UserPlanTier tier = userPlanTierResolver.currentUserTier();
-        QuotaWindow quotaWindow = quotaWindow(tier, category);
-
-        if (quotaWindow.limit() == null) {
+    public void checkCurrentUserQuota(AiQuotaFeature feature) {
+        AppUser user = findUser(loggedInUser.getId());
+        if (userPlanTierResolver.resolve(user) == UserPlanTier.PREMIUM) {
             return;
         }
 
-        long used = aiUsageService.countUserQuotaUsage(
-                userId,
-                category,
-                quotaWindow.fromInclusive(),
-                quotaWindow.toExclusive()
-        );
-
-        if (used < quotaWindow.limit()) {
+        QuotaWindow window = weeklyWindow(user);
+        int limit = weeklyLimit(feature);
+        long used = countUsage(user.getId(), feature, window);
+        if (used < limit) {
             return;
         }
 
         log.warn(
-                "AI quota rejected. userId={}, category={}, tier={}, window={}, used={}, limit={}",
-                userId,
-                category,
-                tier,
-                quotaWindow.windowName(),
-                used,
-                quotaWindow.limit()
+                "AI product quota rejected. userId={}, feature={}, tier=BASIC, windowStart={}, windowEnd={}, used={}, limit={}",
+                user.getId(), feature, window.start(), window.end(), used, limit
         );
-
-        throw new AiQuotaExceededException(errorMessage(tier, category, quotaWindow.windowName()));
+        throw new AiQuotaExceededException(
+                "You have reached your weekly " + feature.displayName()
+                        + " limit. Your allowance resets on " + window.end().toLocalDate() + "."
+        );
     }
 
     @Transactional(readOnly = true)
     public AiQuotaStatusDto getCurrentUserQuotaStatus() {
-        AppUser user = appUserRepo.findById(loggedInUser.getId())
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        return getQuotaStatus(user);
+        return getQuotaStatus(findUser(loggedInUser.getId()));
     }
 
     @Transactional(readOnly = true)
     public AiQuotaStatusDto getUserQuotaStatus(Integer userId) {
-        AppUser user = appUserRepo.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        return getQuotaStatus(findUser(userId));
+    }
 
-        return getQuotaStatus(user);
+    private AppUser findUser(Integer userId) {
+        return appUserRepo.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
     }
 
     private AiQuotaStatusDto getQuotaStatus(AppUser user) {
         UserPlanTier tier = userPlanTierResolver.resolve(user);
         return new AiQuotaStatusDto(
                 tier.name(),
-                Arrays.stream(AiQuotaCategory.values())
-                        .map(category -> categoryStatus(user.getId(), tier, category))
+                Arrays.stream(AiQuotaFeature.values())
+                        .map(feature -> featureStatus(user, tier, feature))
                         .toList()
         );
     }
 
-    private AiQuotaCategoryStatusDto categoryStatus(Integer userId, UserPlanTier tier, AiQuotaCategory category) {
-        QuotaWindow quotaWindow = quotaWindow(tier, category);
-        long used = aiUsageService.countUserQuotaUsage(
-                userId,
-                category,
-                quotaWindow.fromInclusive(),
-                quotaWindow.toExclusive()
-        );
-        Long remaining = quotaWindow.limit() == null
-                ? null
-                : Math.max(quotaWindow.limit() - used, 0);
-
-        return new AiQuotaCategoryStatusDto(
-                category.name(),
-                quotaWindow.windowName(),
-                quotaWindow.limit(),
-                used,
-                remaining,
-                quotaWindow.fromInclusive(),
-                quotaWindow.toExclusive()
-        );
-    }
-
-    private QuotaWindow quotaWindow(UserPlanTier tier, AiQuotaCategory category) {
-        FeatureQuota featureQuota = featureQuota(tier, category);
-
+    private AiQuotaFeatureStatusDto featureStatus(AppUser user, UserPlanTier tier, AiQuotaFeature feature) {
         if (tier == UserPlanTier.PREMIUM) {
-            if (featureQuota.getMonthlyLimit() != null) {
-                LocalDateTime fromInclusive = YearMonth.now(clock).atDay(1).atStartOfDay();
-                return new QuotaWindow(
-                        "monthly",
-                        featureQuota.getMonthlyLimit(),
-                        fromInclusive,
-                        fromInclusive.plusMonths(1)
-                );
-            }
-
-            return dailyQuotaWindow(featureQuota);
+            return new AiQuotaFeatureStatusDto(feature.name(), "unlimited", null, 0, null, null, null);
         }
 
-        if (featureQuota.getDailyLimit() != null) {
-            return dailyQuotaWindow(featureQuota);
-        }
-
-        if (featureQuota.getMonthlyLimit() != null) {
-            LocalDateTime fromInclusive = YearMonth.now(clock).atDay(1).atStartOfDay();
-            return new QuotaWindow(
-                    "monthly",
-                    featureQuota.getMonthlyLimit(),
-                    fromInclusive,
-                    fromInclusive.plusMonths(1)
-            );
-        }
-
-        return new QuotaWindow("unlimited", null, null, null);
-    }
-
-    private QuotaWindow dailyQuotaWindow(FeatureQuota featureQuota) {
-        LocalDateTime fromInclusive = LocalDate.now(clock).atStartOfDay();
-        return new QuotaWindow(
-                "daily",
-                featureQuota.getDailyLimit(),
-                fromInclusive,
-                fromInclusive.plusDays(1)
+        QuotaWindow window = weeklyWindow(user);
+        int limit = weeklyLimit(feature);
+        long used = countUsage(user.getId(), feature, window);
+        return new AiQuotaFeatureStatusDto(
+                feature.name(),
+                "weekly",
+                limit,
+                used,
+                Math.max(limit - used, 0),
+                window.start(),
+                window.end()
         );
     }
 
-    private FeatureQuota featureQuota(UserPlanTier tier, AiQuotaCategory category) {
-        TierQuota tierQuota = tier == UserPlanTier.PREMIUM
-                ? aiQuotaProperties.getPremium()
-                : aiQuotaProperties.getBasic();
+    private long countUsage(Integer userId, AiQuotaFeature feature, QuotaWindow window) {
+        return exerciseAttemptRepo.countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+                userId,
+                feature.exerciseType(),
+                window.start(),
+                window.end()
+        );
+    }
 
-        return switch (category) {
-            case CHAT -> tierQuota.getChat();
-            case TTS -> tierQuota.getTts();
-            case STT -> tierQuota.getStt();
-            case IMAGE -> tierQuota.getImage();
+    private QuotaWindow weeklyWindow(AppUser user) {
+        LocalDate anchor = user.getAiQuotaAnchor();
+        if (anchor == null) {
+            throw new IllegalStateException("AI quota anchor is missing for user " + user.getId());
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        long elapsedDays = Math.max(ChronoUnit.DAYS.between(anchor, today), 0);
+        LocalDate windowStart = anchor.plusDays((elapsedDays / WINDOW_DAYS) * WINDOW_DAYS);
+        return new QuotaWindow(windowStart.atStartOfDay(), windowStart.plusDays(WINDOW_DAYS).atStartOfDay());
+    }
+
+    private int weeklyLimit(AiQuotaFeature feature) {
+        BasicQuota basic = aiQuotaProperties.getBasic();
+        return switch (feature) {
+            case SPEAKING -> basic.getSpeaking().getWeeklyLimit();
+            case LISTENING -> basic.getListening().getWeeklyLimit();
+            case IMAGE_DESCRIPTION -> basic.getImageDescription().getWeeklyLimit();
+            case VOCABULARY -> basic.getVocabulary().getWeeklyLimit();
+            case TOPIC_EXERCISE -> basic.getTopicExercise().getWeeklyLimit();
         };
     }
 
-    private String errorMessage(UserPlanTier tier, AiQuotaCategory category, String windowName) {
-        if ("monthly".equals(windowName)) {
-            return "You have reached this month's practice limit. Please try again later.";
-        }
-
-        return "You have reached today's practice limit. Please try again tomorrow.";
-    }
-
-    private record QuotaWindow(
-            String windowName,
-            Integer limit,
-            LocalDateTime fromInclusive,
-            LocalDateTime toExclusive
-    ) {
+    private record QuotaWindow(LocalDateTime start, LocalDateTime end) {
     }
 }

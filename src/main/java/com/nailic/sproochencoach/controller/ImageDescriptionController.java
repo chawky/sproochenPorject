@@ -45,7 +45,7 @@ public class ImageDescriptionController {
             @RequestParam("audio") MultipartFile audio,
             @RequestParam("imageDescription") String imageDescription,
             @RequestParam(value = "durationSeconds", required = false) Long durationSeconds,
-            @RequestParam(value = "attemptId", required = false) Long attemptId
+            @RequestParam("attemptId") Long attemptId
     ) {
 
         SpeakingEvaluation evaluation = imageDescriptionService.generateEvaluation(audio, imageDescription, durationSeconds, attemptId);

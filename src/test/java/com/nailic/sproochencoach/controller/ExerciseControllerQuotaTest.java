@@ -21,7 +21,7 @@ class ExerciseControllerQuotaTest {
     void returnsTooManyRequestsWhenQuotaIsExceeded() throws Exception {
         ExerciseService exerciseService = mock(ExerciseService.class);
         when(exerciseService.generateExercise(any(ExerciseRequestDto.class)))
-                .thenThrow(new AiQuotaExceededException("You have reached today's practice limit. Please try again tomorrow."));
+                .thenThrow(new AiQuotaExceededException("You have reached your weekly Topic Exercise limit. Your allowance resets on 2026-09-15."));
 
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(new ExerciseController(exerciseService))
@@ -39,6 +39,6 @@ class ExerciseControllerQuotaTest {
                                 """))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("You have reached today's practice limit. Please try again tomorrow."));
+                .andExpect(jsonPath("$.message").value("You have reached your weekly Topic Exercise limit. Your allowance resets on 2026-09-15."));
     }
 }

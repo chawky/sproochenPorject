@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -43,6 +44,13 @@ public class AppUser extends BaseModel implements UserDetails {
   private boolean adminDisabled = false;
   @Column(nullable = false, columnDefinition = "int default 0")
   private int tokenVersion = 0;
+  @Column(
+      name = "ai_quota_anchor",
+      nullable = false,
+      insertable = false,
+      updatable = false,
+      columnDefinition = "date default (current_date)")
+  private LocalDate aiQuotaAnchor;
   @ManyToMany(fetch = FetchType.EAGER)
   @JoinTable(
       name = "app_user_roles",

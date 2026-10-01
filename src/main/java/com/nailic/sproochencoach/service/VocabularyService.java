@@ -25,6 +25,7 @@ public class VocabularyService {
     private final PromptFileService promptFileService;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
+    private final AiQuotaService aiQuotaService;
     @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_VOCABULARY_GENERATION)
     private Resource resource;
     public VocabularyService(
@@ -32,7 +33,8 @@ public class VocabularyService {
             AiJsonParser aiJsonParser,
             PromptFileService promptFileService,
             UserProgressService userProgressService,
-            ExerciseConfigService exerciseConfigService
+            ExerciseConfigService exerciseConfigService,
+            AiQuotaService aiQuotaService
 
     ) {
         this.aiChatClient = aiChatClient;
@@ -40,9 +42,11 @@ public class VocabularyService {
         this.promptFileService = promptFileService;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
+        this.aiQuotaService = aiQuotaService;
     }
 
     public VocabularyDto generateVocabExercise(VocabularyRequestDto exerciseRequestDto) {
+        aiQuotaService.checkCurrentUserQuota(AiQuotaFeature.VOCABULARY);
         VocabularyRequestDto request = exerciseConfigService.normalizedVocabularyRequest(exerciseRequestDto);
         String topicLabel = exerciseConfigService.topicLabel(request.getTopic());
 

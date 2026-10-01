@@ -14,5 +14,5 @@ import java.util.List;
 @Setter
 public class AiQuotaStatusDto {
     private String tier;
-    private List<AiQuotaCategoryStatusDto> categories = new ArrayList<>();
+    private List<AiQuotaFeatureStatusDto> features = new ArrayList<>();
 }
