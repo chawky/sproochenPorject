@@ -16,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
+
 @Service
 public class SpeakingService {
     private static final Logger log = LoggerFactory.getLogger(SpeakingService.class);
@@ -78,7 +80,9 @@ public class SpeakingService {
 
     public SpeakingEvaluation generateEvaluation(MultipartFile audio, Long audioDurationSeconds, Long attemptId) {
         aiRateLimitService.checkAndRecordCurrentUserRequest();
-        userProgressService.claimEvaluation(attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING);
+        LocalDateTime evaluationClaimedAt = userProgressService.claimEvaluation(
+                attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING
+        );
         try {
         String transcription = speechTranscriptionService.transcribeForEvaluation(
                 audio,
@@ -103,7 +107,8 @@ public class SpeakingService {
                     "speaking evaluation",
                     evaluation.getScore(),
                     attemptId,
-                    evaluation.getTranscript()
+                    evaluation.getTranscript(),
+                    evaluationClaimedAt
             );
             return evaluation;
         } catch (JacksonException exception) {
@@ -115,7 +120,9 @@ public class SpeakingService {
             );
         }
         } catch (RuntimeException exception) {
-            userProgressService.releaseEvaluationClaim(attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING);
+            userProgressService.releaseEvaluationClaim(
+                    attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING, evaluationClaimedAt
+            );
             throw exception;
         }
     }

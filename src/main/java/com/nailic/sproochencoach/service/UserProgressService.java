@@ -1,5 +1,6 @@
 package com.nailic.sproochencoach.service;
 
+import com.nailic.sproochencoach.config.AiLeaseProperties;
 import com.nailic.sproochencoach.dto.CompleteExerciseRequest;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.ExerciseAttemptDto;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.Objects;
@@ -31,19 +34,25 @@ public class UserProgressService {
     private final UserLoginDayService userLoginDayService;
     private final AppUserRepo appUserRepo;
     private final AiQuotaService aiQuotaService;
+    private final AiLeaseProperties aiLeaseProperties;
+    private final Clock clock;
 
     public UserProgressService(
             LoggedInUser loggedInUser,
             ExerciseAttemptRepo exerciseAttemptRepo,
             UserLoginDayService userLoginDayService,
             AppUserRepo appUserRepo,
-            AiQuotaService aiQuotaService
+            AiQuotaService aiQuotaService,
+            AiLeaseProperties aiLeaseProperties,
+            Clock clock
     ) {
         this.loggedInUser = loggedInUser;
         this.exerciseAttemptRepo = exerciseAttemptRepo;
         this.userLoginDayService = userLoginDayService;
         this.appUserRepo = appUserRepo;
         this.aiQuotaService = aiQuotaService;
+        this.aiLeaseProperties = aiLeaseProperties;
+        this.clock = clock;
     }
 
     @Transactional
@@ -91,16 +100,18 @@ public class UserProgressService {
             String exerciseName,
             double ratingOverall,
             Long attemptId,
-            String learnerAnswer
+            String learnerAnswer,
+            LocalDateTime evaluationClaimedAt
     ) {
-        ExerciseAttempt attempt = claimedEvaluationAttempt(attemptId, exerciseType);
+        ExerciseAttempt attempt = claimedEvaluationAttempt(attemptId, exerciseType, evaluationClaimedAt);
 
         attempt.setStatus(ExerciseAttemptStatus.EVALUATED);
+        attempt.setEvaluationClaimedAt(null);
         attempt.setAverageRatingOverall(ratingOverall);
         if (StringUtils.hasText(learnerAnswer)) {
             attempt.setLearnerAnswer(cleanAnswer(learnerAnswer));
         }
-        attempt.setEvaluatedAt(LocalDateTime.now());
+        attempt.setEvaluatedAt(LocalDateTime.now(clock));
         if (attempt.getCompletedAt() == null) {
             attempt.setCompletedAt(attempt.getEvaluatedAt());
         }
@@ -109,22 +120,34 @@ public class UserProgressService {
     }
 
     @Transactional
-    public void claimEvaluation(Long attemptId, String expectedExerciseType) {
+    public LocalDateTime claimEvaluation(Long attemptId, String expectedExerciseType) {
+        LocalDateTime claimedAt = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         if (attemptId == null || exerciseAttemptRepo.claimEvaluation(
-                attemptId, loggedInUser.getId(), expectedExerciseType
+                attemptId,
+                loggedInUser.getId(),
+                expectedExerciseType,
+                claimedAt,
+                claimedAt.minus(aiLeaseProperties.getEvaluationClaimTimeout())
         ) != 1) {
             throw new BadRequestException("Exercise attempt cannot be evaluated");
         }
+        return claimedAt;
     }
 
     @Transactional(readOnly = true)
     public void requireClaimedEvaluation(Long attemptId, String expectedExerciseType) {
-        claimedEvaluationAttempt(attemptId, expectedExerciseType);
+        claimedEvaluationAttempt(attemptId, expectedExerciseType, null);
     }
 
     @Transactional
-    public void releaseEvaluationClaim(Long attemptId, String expectedExerciseType) {
-        exerciseAttemptRepo.releaseEvaluation(attemptId, loggedInUser.getId(), expectedExerciseType);
+    public void releaseEvaluationClaim(
+            Long attemptId,
+            String expectedExerciseType,
+            LocalDateTime evaluationClaimedAt
+    ) {
+        exerciseAttemptRepo.releaseEvaluation(
+                attemptId, loggedInUser.getId(), expectedExerciseType, evaluationClaimedAt
+        );
     }
 
     @Transactional
@@ -278,7 +301,11 @@ public class UserProgressService {
         return attempt;
     }
 
-    private ExerciseAttempt claimedEvaluationAttempt(Long attemptId, String expectedExerciseType) {
+    private ExerciseAttempt claimedEvaluationAttempt(
+            Long attemptId,
+            String expectedExerciseType,
+            LocalDateTime evaluationClaimedAt
+    ) {
         if (attemptId == null) {
             throw new BadRequestException("Exercise attempt ID is required for evaluation");
         }
@@ -289,6 +316,9 @@ public class UserProgressService {
         }
         if (attempt.getStatus() != ExerciseAttemptStatus.EVALUATING || attempt.getEvaluatedAt() != null) {
             throw new BadRequestException("Exercise attempt is not claimed for evaluation");
+        }
+        if (evaluationClaimedAt != null && !evaluationClaimedAt.equals(attempt.getEvaluationClaimedAt())) {
+            throw new BadRequestException("Exercise evaluation claim is no longer valid");
         }
 
         return attempt;

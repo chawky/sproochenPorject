@@ -2,6 +2,7 @@ package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.config.AiQuotaProperties;
 import com.nailic.sproochencoach.config.AiQuotaProperties.BasicQuota;
+import com.nailic.sproochencoach.config.AiLeaseProperties;
 import com.nailic.sproochencoach.dto.AiQuotaFeatureStatusDto;
 import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
 import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
@@ -37,6 +38,7 @@ public class AiQuotaService {
     private final AppUserRepo appUserRepo;
     private final Clock clock;
     private final AiFeatureQuotaReservationRepo reservationRepo;
+    private final AiLeaseProperties aiLeaseProperties;
 
     @Transactional
     public QuotaReservation reserveCurrentUserQuota(AiQuotaFeature feature) {
@@ -47,8 +49,10 @@ public class AiQuotaService {
         }
 
         QuotaWindow window = weeklyWindow(user);
+        LocalDateTime expiryCutoff = reservationExpiryCutoff();
+        reservationRepo.deleteExpired(user.getId(), feature.name(), window.start(), expiryCutoff);
         int limit = weeklyLimit(feature);
-        long used = countUsageWithReservations(user.getId(), feature, window);
+        long used = countUsageWithReservations(user.getId(), feature, window, expiryCutoff);
         if (used < limit) {
             AiFeatureQuotaReservation reservation = new AiFeatureQuotaReservation();
             reservation.setId(UUID.randomUUID().toString());
@@ -77,7 +81,15 @@ public class AiQuotaService {
 
     @Transactional
     public void consumeReservation(QuotaReservation reservation) {
-        deleteReservation(reservation, true);
+        if (reservation == null || reservation.id() == null) {
+            return;
+        }
+        int deleted = reservationRepo.deleteOwnedActive(
+                reservation.id(), loggedInUser.getId(), reservation.feature().name(), reservationExpiryCutoff()
+        );
+        if (deleted != 1) {
+            throw new IllegalStateException("AI quota reservation is no longer valid");
+        }
     }
 
     private void deleteReservation(QuotaReservation reservation, boolean required) {
@@ -124,7 +136,7 @@ public class AiQuotaService {
 
         QuotaWindow window = weeklyWindow(user);
         int limit = weeklyLimit(feature);
-        long used = countUsageWithReservations(user.getId(), feature, window);
+        long used = countUsageWithReservations(user.getId(), feature, window, reservationExpiryCutoff());
         return new AiQuotaFeatureStatusDto(
                 feature.name(),
                 "weekly",
@@ -145,9 +157,20 @@ public class AiQuotaService {
         );
     }
 
-    private long countUsageWithReservations(Integer userId, AiQuotaFeature feature, QuotaWindow window) {
+    private long countUsageWithReservations(
+            Integer userId,
+            AiQuotaFeature feature,
+            QuotaWindow window,
+            LocalDateTime expiryCutoff
+    ) {
         return countUsage(userId, feature, window)
-                + reservationRepo.countByUserIdAndFeatureAndWindowStart(userId, feature.name(), window.start());
+                + reservationRepo.countByUserIdAndFeatureAndWindowStartAndCreatedAtAfter(
+                        userId, feature.name(), window.start(), expiryCutoff
+                );
+    }
+
+    private LocalDateTime reservationExpiryCutoff() {
+        return LocalDateTime.now(clock).minus(aiLeaseProperties.getQuotaReservationTimeout());
     }
 
     private QuotaWindow weeklyWindow(AppUser user) {

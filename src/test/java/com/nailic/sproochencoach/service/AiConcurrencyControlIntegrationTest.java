@@ -5,6 +5,7 @@ import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.model.AppUser;
 import com.nailic.sproochencoach.model.ExerciseAttempt;
+import com.nailic.sproochencoach.model.ExerciseAttemptStatus;
 import com.nailic.sproochencoach.repository.AiFeatureQuotaReservationRepo;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.ExerciseAttemptRepo;
@@ -26,6 +27,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -78,14 +80,50 @@ class AiConcurrencyControlIntegrationTest {
         ExerciseAttempt attempt = saveAttempt(AppConstants.ExerciseAttemptTypes.SPEAKING);
 
         authenticated(() -> {
-            userProgressService.claimEvaluation(attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING);
-            userProgressService.releaseEvaluationClaim(attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING);
+            LocalDateTime claimedAt = userProgressService.claimEvaluation(
+                    attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING
+            );
+            userProgressService.releaseEvaluationClaim(
+                    attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING, claimedAt
+            );
             userProgressService.claimEvaluation(attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING);
             return null;
         });
 
         assertThat(exerciseAttemptRepo.findById(attempt.getId()).orElseThrow().getStatus().name())
                 .isEqualTo("EVALUATING");
+    }
+
+    @Test
+    void staleEvaluationClaimCanBeRecovered() throws Exception {
+        ExerciseAttempt attempt = saveAttempt(AppConstants.ExerciseAttemptTypes.SPEAKING);
+        LocalDateTime staleClaimedAt = LocalDateTime.now().minusMinutes(11);
+        attempt.setStatus(ExerciseAttemptStatus.EVALUATING);
+        attempt.setEvaluationClaimedAt(staleClaimedAt);
+        exerciseAttemptRepo.saveAndFlush(attempt);
+
+        LocalDateTime recoveredAt = authenticated(() -> userProgressService.claimEvaluation(
+                attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING
+        ));
+
+        ExerciseAttempt recovered = exerciseAttemptRepo.findById(attempt.getId()).orElseThrow();
+        assertThat(recoveredAt).isAfter(staleClaimedAt);
+        assertThat(recovered.getStatus()).isEqualTo(ExerciseAttemptStatus.EVALUATING);
+        assertThat(recovered.getEvaluationClaimedAt()).isEqualTo(recoveredAt);
+    }
+
+    @Test
+    void evaluatedAttemptCanNeverBeReclaimed() {
+        ExerciseAttempt attempt = saveAttempt(AppConstants.ExerciseAttemptTypes.SPEAKING);
+        attempt.setStatus(ExerciseAttemptStatus.EVALUATED);
+        attempt.setEvaluatedAt(LocalDateTime.now());
+        attempt.setEvaluationClaimedAt(null);
+        exerciseAttemptRepo.saveAndFlush(attempt);
+
+        assertThatThrownBy(() -> authenticated(() -> userProgressService.claimEvaluation(
+                attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING
+        ))).isInstanceOf(BadRequestException.class)
+                .hasMessage("Exercise attempt cannot be evaluated");
     }
 
     @Test
@@ -108,8 +146,11 @@ class AiConcurrencyControlIntegrationTest {
         List<Boolean> results = runConcurrently(generation, generation);
 
         assertThat(results).containsExactlyInAnyOrder(true, false);
-        assertThat(reservationRepo.countByUserIdAndFeatureAndWindowStart(
-                user.getId(), AiQuotaFeature.SPEAKING.name(), user.getAiQuotaAnchor().atStartOfDay()
+        assertThat(reservationRepo.countByUserIdAndFeatureAndWindowStartAndCreatedAtAfter(
+                user.getId(),
+                AiQuotaFeature.SPEAKING.name(),
+                user.getAiQuotaAnchor().atStartOfDay(),
+                LocalDateTime.now().minusMinutes(10)
         )).isEqualTo(1);
     }
 

@@ -1,6 +1,7 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.config.AiQuotaProperties;
+import com.nailic.sproochencoach.config.AiLeaseProperties;
 import com.nailic.sproochencoach.config.AiRateLimitProperties;
 import com.nailic.sproochencoach.dto.AiQuotaFeatureStatusDto;
 import com.nailic.sproochencoach.dto.AiQuotaStatusDto;
@@ -8,6 +9,7 @@ import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
 import com.nailic.sproochencoach.exceptions.AiRateLimitExceededException;
 import com.nailic.sproochencoach.model.AppRole;
 import com.nailic.sproochencoach.model.AppUser;
+import com.nailic.sproochencoach.model.AiFeatureQuotaReservation;
 import com.nailic.sproochencoach.repository.AppUserRepo;
 import com.nailic.sproochencoach.repository.AiFeatureQuotaReservationRepo;
 import com.nailic.sproochencoach.repository.AiRateLimitRequestRepo;
@@ -18,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -42,6 +46,7 @@ class AiQuotaServiceTest {
     private static final LocalDate ANCHOR = LocalDate.of(2026, 9, 1);
     private static final LocalDateTime WINDOW_START = LocalDateTime.of(2026, 9, 8, 0, 0);
     private static final LocalDateTime WINDOW_END = LocalDateTime.of(2026, 9, 15, 0, 0);
+    private static final LocalDateTime RESERVATION_EXPIRY_CUTOFF = LocalDateTime.of(2026, 9, 10, 9, 50);
 
     @Mock private ExerciseAttemptRepo exerciseAttemptRepo;
     @Mock private LoggedInUser loggedInUser;
@@ -91,8 +96,8 @@ class AiQuotaServiceTest {
     void quotaStatusIncludesActiveReservations() {
         AppUser user = basicUser();
         stubCurrentUser(user, UserPlanTier.BASIC);
-        when(reservationRepo.countByUserIdAndFeatureAndWindowStart(
-                USER_ID, AiQuotaFeature.SPEAKING.name(), WINDOW_START
+        when(reservationRepo.countByUserIdAndFeatureAndWindowStartAndCreatedAtAfter(
+                USER_ID, AiQuotaFeature.SPEAKING.name(), WINDOW_START, RESERVATION_EXPIRY_CUTOFF
         )).thenReturn(1L);
 
         AiQuotaFeatureStatusDto speaking = quotaService(CLOCK).getCurrentUserQuotaStatus().getFeatures().stream()
@@ -102,6 +107,39 @@ class AiQuotaServiceTest {
 
         assertThat(speaking.getUsed()).isEqualTo(1);
         assertThat(speaking.getRemaining()).isEqualTo(14);
+    }
+
+    @Test
+    void staleReservationIsNotCountedAndCapacityCanBeReservedAgain() {
+        AppUser user = basicUser();
+        stubCurrentUser(user, UserPlanTier.BASIC);
+        when(count(user, AiQuotaFeature.SPEAKING, WINDOW_START, WINDOW_END)).thenReturn(14L);
+
+        AiFeatureQuotaReservation staleReservation = new AiFeatureQuotaReservation();
+        staleReservation.setCreatedAt(RESERVATION_EXPIRY_CUTOFF.minusMinutes(1));
+        when(reservationRepo.countByUserIdAndFeatureAndWindowStartAndCreatedAtAfter(
+                USER_ID,
+                AiQuotaFeature.SPEAKING.name(),
+                WINDOW_START,
+                RESERVATION_EXPIRY_CUTOFF
+        )).thenAnswer(invocation -> staleReservation.getCreatedAt().isAfter(
+                invocation.getArgument(3, LocalDateTime.class)
+        ) ? 1L : 0L);
+
+        AiQuotaFeatureStatusDto speaking = quotaService(CLOCK).getCurrentUserQuotaStatus().getFeatures().stream()
+                .filter(feature -> feature.getFeature().equals("SPEAKING"))
+                .findFirst()
+                .orElseThrow();
+        AiQuotaService.QuotaReservation reservation = quotaService(CLOCK)
+                .reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
+
+        assertThat(speaking.getUsed()).isEqualTo(14);
+        assertThat(speaking.getRemaining()).isEqualTo(1);
+        assertThat(reservation.id()).isNotBlank();
+        verify(reservationRepo).deleteExpired(
+                USER_ID, AiQuotaFeature.SPEAKING.name(), WINDOW_START, RESERVATION_EXPIRY_CUTOFF
+        );
+        verify(reservationRepo).save(any(AiFeatureQuotaReservation.class));
     }
 
     @Test
@@ -200,8 +238,14 @@ class AiQuotaServiceTest {
     private AiQuotaService quotaService(Clock clock) {
         return new AiQuotaService(
                 quotaProperties(), exerciseAttemptRepo, loggedInUser,
-                userPlanTierResolver, appUserRepo, clock, reservationRepo
+                userPlanTierResolver, appUserRepo, clock, reservationRepo, leaseProperties()
         );
+    }
+
+    private AiLeaseProperties leaseProperties() {
+        AiLeaseProperties properties = new AiLeaseProperties();
+        properties.setQuotaReservationTimeout(Duration.ofMinutes(10));
+        return properties;
     }
 
     private AiQuotaProperties quotaProperties() {

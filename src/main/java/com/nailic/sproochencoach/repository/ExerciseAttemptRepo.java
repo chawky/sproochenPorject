@@ -30,24 +30,44 @@ public interface ExerciseAttemptRepo extends JpaRepository<ExerciseAttempt, Long
     @Modifying
     @Query("""
             update ExerciseAttempt attempt
-            set attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.EVALUATING
+            set attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.EVALUATING,
+                attempt.evaluationClaimedAt = :claimedAt
             where attempt.id = :attemptId
               and attempt.user.id = :userId
               and attempt.exerciseType = :exerciseType
-              and attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.GENERATED
               and attempt.evaluatedAt is null
+              and (
+                attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.GENERATED
+                or (
+                  attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.EVALUATING
+                  and (attempt.evaluationClaimedAt is null or attempt.evaluationClaimedAt < :expiryCutoff)
+                )
+              )
             """)
-    int claimEvaluation(@Param("attemptId") Long attemptId, @Param("userId") Integer userId, @Param("exerciseType") String exerciseType);
+    int claimEvaluation(
+            @Param("attemptId") Long attemptId,
+            @Param("userId") Integer userId,
+            @Param("exerciseType") String exerciseType,
+            @Param("claimedAt") LocalDateTime claimedAt,
+            @Param("expiryCutoff") LocalDateTime expiryCutoff
+    );
 
     @Modifying
     @Query("""
             update ExerciseAttempt attempt
-            set attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.GENERATED
+            set attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.GENERATED,
+                attempt.evaluationClaimedAt = null
             where attempt.id = :attemptId
               and attempt.user.id = :userId
               and attempt.exerciseType = :exerciseType
               and attempt.status = com.nailic.sproochencoach.model.ExerciseAttemptStatus.EVALUATING
               and attempt.evaluatedAt is null
+              and attempt.evaluationClaimedAt = :claimedAt
             """)
-    int releaseEvaluation(@Param("attemptId") Long attemptId, @Param("userId") Integer userId, @Param("exerciseType") String exerciseType);
+    int releaseEvaluation(
+            @Param("attemptId") Long attemptId,
+            @Param("userId") Integer userId,
+            @Param("exerciseType") String exerciseType,
+            @Param("claimedAt") LocalDateTime claimedAt
+    );
 }

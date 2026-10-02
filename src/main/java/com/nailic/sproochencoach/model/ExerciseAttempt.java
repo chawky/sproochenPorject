@@ -64,4 +64,7 @@ public class ExerciseAttempt {
 
     @Column
     private LocalDateTime evaluatedAt;
+
+    @Column
+    private LocalDateTime evaluationClaimedAt;
 }

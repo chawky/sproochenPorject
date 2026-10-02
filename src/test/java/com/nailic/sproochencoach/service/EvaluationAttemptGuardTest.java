@@ -1,6 +1,7 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
+import com.nailic.sproochencoach.config.AiLeaseProperties;
 import com.nailic.sproochencoach.dto.SpeakingEvaluation;
 import com.nailic.sproochencoach.exceptions.BadRequestException;
 import com.nailic.sproochencoach.exceptions.AiProviderException;
@@ -18,7 +19,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +40,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class EvaluationAttemptGuardTest {
     private static final Integer USER_ID = 42;
+    private static final Clock CLOCK = Clock.fixed(
+            Instant.parse("2026-09-10T08:00:00Z"), ZoneId.of("Europe/Paris")
+    );
+    private static final LocalDateTime CLAIMED_AT = LocalDateTime.of(2026, 9, 10, 10, 0);
+    private static final LocalDateTime CLAIM_EXPIRY_CUTOFF = LocalDateTime.of(2026, 9, 10, 9, 50);
 
     @Mock private LoggedInUser loggedInUser;
     @Mock private ExerciseAttemptRepo exerciseAttemptRepo;
@@ -64,6 +74,7 @@ class EvaluationAttemptGuardTest {
         assertThat(result.getScore()).isEqualTo(8);
         assertThat(attempt.getStatus()).isEqualTo(ExerciseAttemptStatus.EVALUATED);
         assertThat(attempt.getEvaluatedAt()).isNotNull();
+        assertThat(attempt.getEvaluationClaimedAt()).isNull();
         verify(exerciseAttemptRepo).save(attempt);
     }
 
@@ -89,6 +100,13 @@ class EvaluationAttemptGuardTest {
         UserProgressService progressService = progressService();
         SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
         stubSuccessfulClaim(attempt);
+        when(exerciseAttemptRepo.releaseEvaluation(
+                1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING, CLAIMED_AT
+        )).thenAnswer(invocation -> {
+            attempt.setStatus(ExerciseAttemptStatus.GENERATED);
+            attempt.setEvaluationClaimedAt(null);
+            return 1;
+        });
         when(transcriptionService.transcribeForEvaluation(
                 audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).thenThrow(new AiProviderException(502, "Groq failed"));
@@ -98,8 +116,10 @@ class EvaluationAttemptGuardTest {
                 .isInstanceOf(AiProviderException.class);
 
         verify(exerciseAttemptRepo).releaseEvaluation(
-                1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING
+                1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING, CLAIMED_AT
         );
+        assertThat(attempt.getStatus()).isEqualTo(ExerciseAttemptStatus.GENERATED);
+        assertThat(attempt.getEvaluationClaimedAt()).isNull();
         verifyNoInteractions(aiChatClient);
     }
 
@@ -150,6 +170,9 @@ class EvaluationAttemptGuardTest {
     void imageDescriptionEvaluationRequiresImageDescriptionAttempt() {
         SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
         UserProgressService progressService = mock(UserProgressService.class);
+        when(progressService.claimEvaluation(
+                7L, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
+        )).thenReturn(CLAIMED_AT);
         when(transcriptionService.transcribeForEvaluation(
                 audio, 5L, 7L, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
         )).thenReturn("Eng Beschreiwung");
@@ -176,7 +199,8 @@ class EvaluationAttemptGuardTest {
                 "image description evaluation",
                 8,
                 7L,
-                "Ech schwätzen."
+                "Ech schwätzen.",
+                CLAIMED_AT
         );
     }
 
@@ -210,13 +234,26 @@ class EvaluationAttemptGuardTest {
         currentUser.setId(USER_ID);
         org.mockito.Mockito.lenient().when(loggedInUser.get()).thenReturn(currentUser);
         org.mockito.Mockito.lenient().when(loggedInUser.getId()).thenReturn(USER_ID);
-        return new UserProgressService(loggedInUser, exerciseAttemptRepo, userLoginDayService, appUserRepo, aiQuotaService);
+        AiLeaseProperties leaseProperties = new AiLeaseProperties();
+        leaseProperties.setEvaluationClaimTimeout(Duration.ofMinutes(10));
+        return new UserProgressService(
+                loggedInUser,
+                exerciseAttemptRepo,
+                userLoginDayService,
+                appUserRepo,
+                aiQuotaService,
+                leaseProperties,
+                CLOCK
+        );
     }
 
     private void stubSuccessfulClaim(ExerciseAttempt attempt) {
-        when(exerciseAttemptRepo.claimEvaluation(attempt.getId(), USER_ID, attempt.getExerciseType()))
+        when(exerciseAttemptRepo.claimEvaluation(
+                attempt.getId(), USER_ID, attempt.getExerciseType(), CLAIMED_AT, CLAIM_EXPIRY_CUTOFF
+        ))
                 .thenAnswer(invocation -> {
                     attempt.setStatus(ExerciseAttemptStatus.EVALUATING);
+                    attempt.setEvaluationClaimedAt(CLAIMED_AT);
                     return 1;
                 });
     }
