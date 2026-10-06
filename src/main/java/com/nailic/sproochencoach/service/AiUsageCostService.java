@@ -32,8 +32,8 @@ public class AiUsageCostService {
     @Value(AppConstants.PropertyPlaceholders.AI_PRICING_GPT_IMAGE_2_OUTPUT)
     private BigDecimal gptImage2OutputUsdPerMillion;
 
-    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_ELEVEN_MULTILINGUAL)
-    private BigDecimal elevenMultilingualUsdPerThousandCharacters;
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_ELEVEN_V3)
+    private BigDecimal elevenV3UsdPerThousandCharacters;
 
     @Value(AppConstants.PropertyPlaceholders.AI_PRICING_WHISPER_LARGE_V3)
     private BigDecimal whisperLargeV3UsdPerHour;
@@ -67,9 +67,9 @@ public class AiUsageCostService {
         }
 
         if (is(provider, AppConstants.Providers.ELEVENLABS)
-                && is(model, AppConstants.Models.ELEVEN_MULTILINGUAL_V2)
+                && is(model, AppConstants.Models.ELEVEN_V3)
                 && is(usageUnit, AppConstants.UsageUnits.CHARACTER)) {
-            return unitCost(usageAmount, elevenMultilingualUsdPerThousandCharacters, ONE_THOUSAND);
+            return unitCost(usageAmount, elevenV3UsdPerThousandCharacters, ONE_THOUSAND);
         }
 
         if (is(provider, AppConstants.Providers.GROQ)

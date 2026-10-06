@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 @Service
 public class AudioExerciseGenerationService {
     private static final Logger log = LoggerFactory.getLogger(AudioExerciseGenerationService.class);
+    private static final String LUXEMBOURGISH_LANGUAGE_CODE = "lb";
 
     @Value(AppConstants.PropertyPlaceholders.AI_ELEVENLABS_VOICE_ID)
     private String voiceId;
@@ -56,7 +57,8 @@ public class AudioExerciseGenerationService {
 
         TtsRequest ttsRequest = new TtsRequest(
                 result.getQuestion(),
-                AppConstants.Models.ELEVEN_MULTILINGUAL_V2
+                AppConstants.Models.ELEVEN_V3,
+                LUXEMBOURGISH_LANGUAGE_CODE
         );
 
         byte[] audio;
@@ -76,7 +78,7 @@ public class AudioExerciseGenerationService {
         result.setAudio(audio);
         aiUsageService.recordCharacterUsage(
                 AppConstants.Providers.ELEVENLABS,
-                AppConstants.Models.ELEVEN_MULTILINGUAL_V2,
+                AppConstants.Models.ELEVEN_V3,
                 exerciseName + " audio",
                 ttsRequest.getText()
         );

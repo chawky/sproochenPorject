@@ -8,4 +8,5 @@ import lombok.Data;
 public class TtsRequest {
     private String text;
     private String model_id;
+    private String language_code;
 }

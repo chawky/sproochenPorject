@@ -46,7 +46,7 @@ public final class AppConstants {
         public static final String KIMI_K3 = "moonshotai/kimi-k3";
         public static final String SEEDREAM_4_5 = "bytedance-seed/seedream-4.5";
         public static final String GPT_IMAGE_2 = "gpt-image-2";
-        public static final String ELEVEN_MULTILINGUAL_V2 = "eleven_multilingual_v2";
+        public static final String ELEVEN_V3 = "eleven_v3";
         public static final String WHISPER_LARGE_V3 = "whisper-large-v3";
 
         private Models() {
@@ -165,7 +165,7 @@ public final class AppConstants {
         public static final String AI_PRICING_SEEDREAM_IMAGE = "${ai.usage.pricing.seedream-4-5.usd-per-image}";
         public static final String AI_PRICING_GPT_IMAGE_2_INPUT = "${ai.usage.pricing.gpt-image-2.input-usd-per-million}";
         public static final String AI_PRICING_GPT_IMAGE_2_OUTPUT = "${ai.usage.pricing.gpt-image-2.output-usd-per-million}";
-        public static final String AI_PRICING_ELEVEN_MULTILINGUAL = "${ai.usage.pricing.eleven-multilingual-v2.usd-per-1000-characters}";
+        public static final String AI_PRICING_ELEVEN_V3 = "${ai.usage.pricing.eleven-v3.usd-per-1000-characters}";
         public static final String AI_PRICING_WHISPER_LARGE_V3 = "${ai.usage.pricing.whisper-large-v3.usd-per-hour}";
         public static final String LUXEMBOURG_GEOPORTAIL_BASE_URL = "${luxembourg.geoportail.base-url}";
         public static final String LUXEMBOURG_GEOPORTAIL_FULLTEXT_SEARCH_URI = "${luxembourg.geoportail.fulltext-search-uri}";
