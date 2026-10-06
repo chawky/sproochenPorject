@@ -86,12 +86,35 @@ class AiConcurrencyControlIntegrationTest {
             userProgressService.releaseEvaluationClaim(
                     attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING, claimedAt
             );
+            assertThat(exerciseAttemptRepo.findById(attempt.getId()).orElseThrow().getStatus())
+                    .isEqualTo(ExerciseAttemptStatus.GENERATED);
             userProgressService.claimEvaluation(attempt.getId(), AppConstants.ExerciseAttemptTypes.SPEAKING);
             return null;
         });
 
         assertThat(exerciseAttemptRepo.findById(attempt.getId()).orElseThrow().getStatus().name())
                 .isEqualTo("EVALUATING");
+    }
+
+    @Test
+    void speakingAndImageDescriptionCanTransitionFromGeneratedToEvaluated() throws Exception {
+        for (String exerciseType : List.of(
+                AppConstants.ExerciseAttemptTypes.SPEAKING,
+                AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
+        )) {
+            ExerciseAttempt attempt = saveAttempt(exerciseType);
+
+            authenticated(() -> {
+                LocalDateTime claimedAt = userProgressService.claimEvaluation(attempt.getId(), exerciseType);
+                assertThat(exerciseAttemptRepo.findById(attempt.getId()).orElseThrow().getStatus())
+                        .isEqualTo(ExerciseAttemptStatus.EVALUATING);
+                userProgressService.recordEvaluation(exerciseType, exerciseType, 4.0, attempt.getId(), null, claimedAt);
+                return null;
+            });
+
+            assertThat(exerciseAttemptRepo.findById(attempt.getId()).orElseThrow().getStatus())
+                    .isEqualTo(ExerciseAttemptStatus.EVALUATED);
+        }
     }
 
     @Test
