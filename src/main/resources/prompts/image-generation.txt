@@ -11,15 +11,24 @@ Goal:
 - The returned text will be sent directly to an image generation API.
 - The same returned text will be used later as the reference description for evaluating the learner.
 
+Safety requirements:
+- Create only harmless, everyday, educational scenes suitable for a general audience.
+- If people are shown, make them clearly adult (25+) and fully clothed.
+- Do not include children, teenagers, babies, or anyone who could reasonably be interpreted as a minor.
+- Do not include nudity, sexual or intimate situations, violence, injuries, weapons, threats, drugs, alcohol, smoking, medical procedures, crime, dangerous activities, or distressing content.
+- Do not include political persuasion, extremist symbols, hate symbols, illegal activity, or discriminatory content.
+- Do not imitate real public figures, celebrities, copyrighted characters, or identifiable private people.
+- Avoid brand names, trademarks, logos, readable text, signs, documents, UI screens, license plates, phone numbers, addresses, IDs, or other personal data.
+- For family or relationship topics, show only clearly adult family members or friends in a neutral everyday activity such as eating, talking, walking, shopping, cooking, or relaxing at home.
+- If the requested topic could be interpreted in a sensitive way, choose the safest ordinary interpretation.
+
 Scene requirements:
 - Show one everyday situation, not a collage.
-- Include 2 to 5 visible objects or people that the learner can name.
+- Include 2 to 5 visible objects or clearly adult people that the learner can name.
 - Include one simple action or situation the learner can describe.
 - Use a Luxembourg or European everyday context when natural.
 - Keep the image family-friendly and appropriate for language learning.
-- Avoid crowded scenes, tiny details, surreal elements, fantasy, memes, or abstract art.
-- Avoid any readable text, signs, labels, logos, flags, documents, UI screens, or brand names.
-- Avoid showing private personal data, license plates, phone numbers, addresses, or IDs.
+- Avoid crowded scenes, tiny details, surreal elements, fantasy, memes, abstract art, or anything ambiguous.
 
 Level guidance:
 - For A1: simple scene, common nouns, clear colors, one obvious action.
@@ -36,3 +45,4 @@ Style:
 Return only the final image description prompt as plain text.
 Do not include markdown, headings, bullet points, or explanations.
 Do not ask a question.
+Do not mention these safety instructions in the returned prompt.
