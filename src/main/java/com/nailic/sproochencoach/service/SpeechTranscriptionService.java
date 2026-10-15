@@ -1,7 +1,6 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.constants.AppConstants;
-import com.nailic.sproochencoach.model.PromptTemplateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class SpeechTranscriptionService {
     private static final Logger log = LoggerFactory.getLogger(SpeechTranscriptionService.class);
-    private static final String TRANSCRIPTION_PROMPT_KEY = PromptTemplateKey.GROQ_TRANSCRIPTION.getKey();
 
     @Value(AppConstants.PropertyPlaceholders.AI_PROMPTS_TRANSCRIPTION)
     private Resource transcriptionPromptResource;
@@ -52,7 +50,7 @@ public class SpeechTranscriptionService {
         body.add(AppConstants.GroqRequestFields.MODEL, AppConstants.Models.WHISPER_LARGE_V3);
         body.add(AppConstants.GroqRequestFields.RESPONSE_FORMAT, AppConstants.GroqRequestFields.TEXT_RESPONSE_FORMAT);
         body.add(AppConstants.GroqRequestFields.LANGUAGE, AppConstants.GroqRequestFields.LUXEMBOURGISH_LANGUAGE);
-        body.add(AppConstants.GroqRequestFields.PROMPT, promptFileService.readWithAdminGuidance(TRANSCRIPTION_PROMPT_KEY, transcriptionPromptResource));
+        body.add(AppConstants.GroqRequestFields.PROMPT, promptFileService.read(transcriptionPromptResource));
 
         try {
             String transcription = groqRestClient.post()
