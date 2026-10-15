@@ -52,7 +52,6 @@ public class OpenAiSpeechTranscriptionService {
         body.add(AppConstants.OpenAiRequestFields.FILE, audio.getResource());
         body.add(AppConstants.OpenAiRequestFields.MODEL, AppConstants.Models.GPT_4O_TRANSCRIBE);
         body.add(AppConstants.OpenAiRequestFields.RESPONSE_FORMAT, AppConstants.OpenAiRequestFields.JSON_RESPONSE_FORMAT);
-        body.add(AppConstants.OpenAiRequestFields.LANGUAGE, AppConstants.OpenAiRequestFields.LUXEMBOURGISH_LANGUAGE);
         body.add(AppConstants.OpenAiRequestFields.PROMPT, promptFileService.read(transcriptionPromptResource));
 
         try {
