@@ -52,7 +52,7 @@ public class SpeechTranscriptionService {
         body.add(AppConstants.GroqRequestFields.MODEL, AppConstants.Models.WHISPER_LARGE_V3);
         body.add(AppConstants.GroqRequestFields.RESPONSE_FORMAT, AppConstants.GroqRequestFields.TEXT_RESPONSE_FORMAT);
         body.add(AppConstants.GroqRequestFields.LANGUAGE, AppConstants.GroqRequestFields.LUXEMBOURGISH_LANGUAGE);
-        body.add(AppConstants.GroqRequestFields.PROMPT, promptFileService.readWithAdminGuidance(TRANSCRIPTION_PROMPT_KEY, transcriptionPromptResource));
+        body.add(AppConstants.GroqRequestFields.PROMPT, promptFileService.read(transcriptionPromptResource));
 
         try {
             String transcription = groqRestClient.post()
