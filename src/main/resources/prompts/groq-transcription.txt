@@ -1,6 +1,6 @@
-The speaker is speaking Luxembourgish (Lëtzebuergesch).
-Transcribe exactly what is spoken in Luxembourgish.
-Do not translate into English, German, French, or any other language.
-Use standard Luxembourgish spelling.
-Return only the transcript text.
-Do not add commentary, labels, timestamps, or explanations.
+De Spriecher schwätzt Lëtzebuergesch.
+Schreif genee op Lëtzebuergesch op, wat gesot gëtt.
+Iwwersetz net op Englesch, Däitsch, Franséisch oder eng aner Sprooch.
+Benotz déi offiziell Lëtzebuerger Schreifweis.
+Gëff nëmmen den transkribéierten Text zeréck.
+Füüüg keng Erklärungen, Titelen, Zäiten oder Kommentaren derbäi.
