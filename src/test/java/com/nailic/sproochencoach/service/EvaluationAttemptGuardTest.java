@@ -79,17 +79,14 @@ class EvaluationAttemptGuardTest {
     @Test
     void secondEvaluationIsRejectedBeforeGroqOrKimi() {
         UserProgressService progressService = progressService();
-        RestClient groqClient = mock(RestClient.class, RETURNS_DEEP_STUBS);
-        SpeechTranscriptionService transcriptionService = new SpeechTranscriptionService(
-                groqClient, promptFileService, mock(AiUsageService.class), progressService
-        );
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
 
         assertThatThrownBy(() -> speakingService(progressService, transcriptionRouter)
                 .generateEvaluation(audio, 5L, 1L))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Exercise attempt cannot be evaluated");
 
-        verifyNoInteractions(groqClient, aiChatClient);
+        verifyNoInteractions(transcriptionRouter, aiChatClient);
     }
 
     @Test
@@ -138,7 +135,7 @@ class EvaluationAttemptGuardTest {
         )).thenReturn("Zweet Äntwert");
         stubEvaluationResponse();
 
-        SpeakingService service = speakingService(progressService(), transcriptionService);
+        SpeakingService service = speakingService(progressService(), transcriptionRouter);
         service.generateEvaluation(audio, 5L, 1L);
         service.generateEvaluation(audio, 5L, 2L);
 
@@ -180,7 +177,7 @@ class EvaluationAttemptGuardTest {
                 aiChatClient,
                 mock(AiImageClient.class),
                 promptFileService,
-                transcriptionService,
+                transcriptionRouter,
                 new ObjectMapper(),
                 progressService,
                 mock(ExerciseConfigService.class),
