@@ -37,7 +37,7 @@ public class SpeakingService {
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
     private final AiQuotaService aiQuotaService;
-    private final SpeechTranscriptionService speechTranscriptionService;
+    private final SpeechTranscriptionRouter speechTranscriptionRouter;
     private final AiRateLimitService aiRateLimitService;
 
     public SpeakingService(
@@ -48,7 +48,7 @@ public class SpeakingService {
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
             AiQuotaService aiQuotaService,
-            SpeechTranscriptionService speechTranscriptionService,
+            SpeechTranscriptionRouter speechTranscriptionRouter,
             AiRateLimitService aiRateLimitService
     ) {
         this.aiChatClient = aiChatClient;
@@ -58,7 +58,7 @@ public class SpeakingService {
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
         this.aiQuotaService = aiQuotaService;
-        this.speechTranscriptionService = speechTranscriptionService;
+        this.speechTranscriptionRouter = speechTranscriptionRouter;
         this.aiRateLimitService = aiRateLimitService;
     }
 
@@ -84,7 +84,7 @@ public class SpeakingService {
                 attemptId, AppConstants.ExerciseAttemptTypes.SPEAKING
         );
         try {
-        String transcription = speechTranscriptionService.transcribeForEvaluation(
+        String transcription = speechTranscriptionRouter.transcribeForEvaluation(
                 audio,
                 audioDurationSeconds,
                 attemptId,

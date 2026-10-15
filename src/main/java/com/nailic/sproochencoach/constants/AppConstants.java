@@ -9,6 +9,7 @@ public final class AppConstants {
         public static final String ANTHROPIC = "anthropicRestClient";
         public static final String KIMI_IMAGE_GENERATION = "kimiImageGenerationRestClient";
         public static final String GROQ = "groqRestClient";
+        public static final String OPENAI = "openAiRestClient";
         public static final String TTS = "ttsRestClient";
         public static final String GEOPORTAIL = "geoportailRestClient";
         public static final String RESEND = "resendRestClient";
@@ -24,6 +25,7 @@ public final class AppConstants {
         public static final String KIMI_IMAGE = "kimi-image";
         public static final String ELEVENLABS = "elevenlabs";
         public static final String GROQ = "groq";
+        public static final String OPENAI = "openai";
         public static final String GEOPORTAIL = "geoportail";
         public static final String RESEND = "resend";
 
@@ -48,6 +50,7 @@ public final class AppConstants {
         public static final String GPT_IMAGE_2 = "gpt-image-2";
         public static final String ELEVEN_V3 = "eleven_v3";
         public static final String WHISPER_LARGE_V3 = "whisper-large-v3";
+        public static final String GPT_4O_TRANSCRIBE = "gpt-4o-transcribe";
 
         private Models() {
         }
@@ -108,8 +111,22 @@ public final class AppConstants {
         }
     }
 
+    public static final class OpenAiRequestFields {
+        public static final String FILE = "file";
+        public static final String MODEL = "model";
+        public static final String RESPONSE_FORMAT = "response_format";
+        public static final String LANGUAGE = "language";
+        public static final String PROMPT = "prompt";
+        public static final String JSON_RESPONSE_FORMAT = "json";
+        public static final String LUXEMBOURGISH_LANGUAGE = "lb";
+
+        private OpenAiRequestFields() {
+        }
+    }
+
     public static final class ApiPaths {
         public static final String GROQ_AUDIO_TRANSCRIPTIONS = "/audio/transcriptions";
+        public static final String OPENAI_AUDIO_TRANSCRIPTIONS = "/audio/transcriptions";
         public static final String ELEVENLABS_TEXT_TO_SPEECH = "/text-to-speech/";
         public static final String RESEND_EMAILS = "/emails";
         public static final String RESEND_RECEIVING_EMAILS = "/emails/receiving";
@@ -135,6 +152,9 @@ public final class AppConstants {
         public static final String AI_OPENROUTER_BASE_URL = "${ai.openrouter.base-url}";
         public static final String AI_GROQ_API_KEY = "${ai.groq.api-key}";
         public static final String AI_GROQ_BASE_URL = "${ai.groq.base-url}";
+        public static final String AI_OPENAI_API_KEY = "${ai.openai.api-key}";
+        public static final String AI_OPENAI_BASE_URL = "${ai.openai.base-url}";
+        public static final String AI_TRANSCRIPTION_PROVIDER = "${ai.transcription.provider:groq}";
         public static final String AI_ELEVENLABS_API_KEY = "${ai.elevenlabs.api-key}";
         public static final String AI_ELEVENLABS_BASE_URL = "${ai.elevenlabs.base-url}";
         public static final String AI_ELEVENLABS_VOICE_ID = "${ai.elevenlabs.voice-id}";
@@ -167,6 +187,7 @@ public final class AppConstants {
         public static final String AI_PRICING_GPT_IMAGE_2_OUTPUT = "${ai.usage.pricing.gpt-image-2.output-usd-per-million}";
         public static final String AI_PRICING_ELEVEN_V3 = "${ai.usage.pricing.eleven-v3.usd-per-1000-characters}";
         public static final String AI_PRICING_WHISPER_LARGE_V3 = "${ai.usage.pricing.whisper-large-v3.usd-per-hour}";
+        public static final String AI_PRICING_GPT_4O_TRANSCRIBE = "${ai.usage.pricing.gpt-4o-transcribe.usd-per-minute}";
         public static final String LUXEMBOURG_GEOPORTAIL_BASE_URL = "${luxembourg.geoportail.base-url}";
         public static final String LUXEMBOURG_GEOPORTAIL_FULLTEXT_SEARCH_URI = "${luxembourg.geoportail.fulltext-search-uri}";
         public static final String LUXEMBOURG_GEOPORTAIL_LOCATION_LAYERS = "${luxembourg.geoportail.location-layers}";

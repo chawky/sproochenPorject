@@ -13,6 +13,7 @@ public class AiUsageCostService {
     private static final BigDecimal ONE_MILLION = BigDecimal.valueOf(1_000_000);
     private static final BigDecimal ONE_THOUSAND = BigDecimal.valueOf(1_000);
     private static final BigDecimal ONE_HOUR_SECONDS = BigDecimal.valueOf(3_600);
+    private static final BigDecimal ONE_MINUTE_SECONDS = BigDecimal.valueOf(60);
 
     @Value(AppConstants.PropertyPlaceholders.AI_PRICING_KIMI_K3_INPUT)
     private BigDecimal kimiK3InputUsdPerMillion;
@@ -37,6 +38,9 @@ public class AiUsageCostService {
 
     @Value(AppConstants.PropertyPlaceholders.AI_PRICING_WHISPER_LARGE_V3)
     private BigDecimal whisperLargeV3UsdPerHour;
+
+    @Value(AppConstants.PropertyPlaceholders.AI_PRICING_GPT_4O_TRANSCRIBE)
+    private BigDecimal gpt4oTranscribeUsdPerMinute;
 
     public BigDecimal estimateCostUsd(
             String provider,
@@ -76,6 +80,12 @@ public class AiUsageCostService {
                 && is(model, AppConstants.Models.WHISPER_LARGE_V3)
                 && is(usageUnit, AppConstants.UsageUnits.AUDIO_SECOND)) {
             return unitCost(usageAmount, whisperLargeV3UsdPerHour, ONE_HOUR_SECONDS);
+        }
+
+        if (is(provider, AppConstants.Providers.OPENAI)
+                && is(model, AppConstants.Models.GPT_4O_TRANSCRIBE)
+                && is(usageUnit, AppConstants.UsageUnits.AUDIO_SECOND)) {
+            return unitCost(usageAmount, gpt4oTranscribeUsdPerMinute, ONE_MINUTE_SECONDS);
         }
 
         return null;

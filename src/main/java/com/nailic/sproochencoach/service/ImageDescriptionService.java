@@ -33,7 +33,7 @@ public class ImageDescriptionService {
     private final PromptFileService promptFileService;
     private final AiChatClient aiChatClient;
     private final AiImageClient aiImageClient;
-    private final SpeechTranscriptionService speechTranscriptionService;
+    private final SpeechTranscriptionRouter speechTranscriptionRouter;
     private final ObjectMapper objectMapper;
     private final UserProgressService userProgressService;
     private final ExerciseConfigService exerciseConfigService;
@@ -44,7 +44,7 @@ public class ImageDescriptionService {
             AiChatClient aiChatClient,
             AiImageClient aiImageClient,
             PromptFileService promptFileService,
-            SpeechTranscriptionService speechTranscriptionService,
+            SpeechTranscriptionRouter speechTranscriptionRouter,
             ObjectMapper objectMapper,
             UserProgressService userProgressService,
             ExerciseConfigService exerciseConfigService,
@@ -54,7 +54,7 @@ public class ImageDescriptionService {
         this.promptFileService = promptFileService;
         this.aiChatClient = aiChatClient;
         this.aiImageClient = aiImageClient;
-        this.speechTranscriptionService = speechTranscriptionService;
+        this.speechTranscriptionRouter = speechTranscriptionRouter;
         this.objectMapper = objectMapper;
         this.userProgressService = userProgressService;
         this.exerciseConfigService = exerciseConfigService;
@@ -95,7 +95,7 @@ public class ImageDescriptionService {
                 attemptId, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
         );
         try {
-        String transcription = speechTranscriptionService.transcribeForEvaluation(
+        String transcription = speechTranscriptionRouter.transcribeForEvaluation(
                 audio,
                 audioDurationSeconds,
                 attemptId,
