@@ -31,20 +31,20 @@ class AiTechnicalRateLimitGuardTest {
     void evaluationRateLimitRejectsBeforeClaimGroqOrKimi() {
         AiRateLimitService rateLimit = mock(AiRateLimitService.class);
         UserProgressService progress = mock(UserProgressService.class);
-        SpeechTranscriptionService groq = mock(SpeechTranscriptionService.class);
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
         AiChatClient kimi = mock(AiChatClient.class);
         doThrow(new AiRateLimitExceededException("rate limit"))
                 .when(rateLimit).checkAndRecordCurrentUserRequest();
         SpeakingService service = new SpeakingService(
                 kimi, new ObjectMapper(), mock(PromptFileService.class),
                 mock(AudioExerciseGenerationService.class), progress,
-                mock(ExerciseConfigService.class), mock(AiQuotaService.class), groq, rateLimit
+                mock(ExerciseConfigService.class), mock(AiQuotaService.class), transcriptionRouter, rateLimit
         );
 
         assertThatThrownBy(() -> service.generateEvaluation(mock(MultipartFile.class), 5L, 7L))
                 .isInstanceOf(AiRateLimitExceededException.class);
 
-        verifyNoInteractions(progress, groq, kimi);
+        verifyNoInteractions(progress, transcriptionRouter, kimi);
     }
 
     private SpeakingService speakingService(
@@ -56,7 +56,7 @@ class AiTechnicalRateLimitGuardTest {
         return new SpeakingService(
                 mock(AiChatClient.class), new ObjectMapper(), mock(PromptFileService.class),
                 provider, progress, mock(ExerciseConfigService.class), quota,
-                mock(SpeechTranscriptionService.class), rateLimit
+                mock(SpeechTranscriptionRouter.class), rateLimit
         );
     }
 }
