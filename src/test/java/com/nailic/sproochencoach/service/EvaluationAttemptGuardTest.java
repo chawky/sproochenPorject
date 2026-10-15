@@ -15,7 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -60,15 +58,15 @@ class EvaluationAttemptGuardTest {
     void firstEvaluationSucceeds() {
         ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
         UserProgressService progressService = progressService();
-        SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
         stubSuccessfulClaim(attempt);
         when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(attempt));
-        when(transcriptionService.transcribeForEvaluation(
+        when(transcriptionRouter.transcribeForEvaluation(
                 audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).thenReturn("Ech schwätzen.");
         stubEvaluationResponse();
 
-        SpeakingEvaluation result = speakingService(progressService, transcriptionService)
+        SpeakingEvaluation result = speakingService(progressService, transcriptionRouter)
                 .generateEvaluation(audio, 5L, 1L);
 
         assertThat(result.getScore()).isEqualTo(8);
@@ -86,7 +84,7 @@ class EvaluationAttemptGuardTest {
                 groqClient, promptFileService, mock(AiUsageService.class), progressService
         );
 
-        assertThatThrownBy(() -> speakingService(progressService, transcriptionService)
+        assertThatThrownBy(() -> speakingService(progressService, transcriptionRouter)
                 .generateEvaluation(audio, 5L, 1L))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Exercise attempt cannot be evaluated");
@@ -98,7 +96,7 @@ class EvaluationAttemptGuardTest {
     void providerFailureReleasesEvaluationClaimForRetry() {
         ExerciseAttempt attempt = attempt(1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING);
         UserProgressService progressService = progressService();
-        SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
         stubSuccessfulClaim(attempt);
         when(exerciseAttemptRepo.releaseEvaluation(
                 1L, USER_ID, AppConstants.ExerciseAttemptTypes.SPEAKING, CLAIMED_AT
@@ -107,11 +105,11 @@ class EvaluationAttemptGuardTest {
             attempt.setEvaluationClaimedAt(null);
             return 1;
         });
-        when(transcriptionService.transcribeForEvaluation(
+        when(transcriptionRouter.transcribeForEvaluation(
                 audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).thenThrow(new AiProviderException(502, "Groq failed"));
 
-        assertThatThrownBy(() -> speakingService(progressService, transcriptionService)
+        assertThatThrownBy(() -> speakingService(progressService, transcriptionRouter)
                 .generateEvaluation(audio, 5L, 1L))
                 .isInstanceOf(AiProviderException.class);
 
@@ -131,11 +129,11 @@ class EvaluationAttemptGuardTest {
         stubSuccessfulClaim(second);
         when(exerciseAttemptRepo.findById(1L)).thenReturn(Optional.of(first));
         when(exerciseAttemptRepo.findById(2L)).thenReturn(Optional.of(second));
-        SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
-        when(transcriptionService.transcribeForEvaluation(
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
+        when(transcriptionRouter.transcribeForEvaluation(
                 audio, 5L, 1L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).thenReturn("Éischt Äntwert");
-        when(transcriptionService.transcribeForEvaluation(
+        when(transcriptionRouter.transcribeForEvaluation(
                 audio, 5L, 2L, AppConstants.ExerciseAttemptTypes.SPEAKING
         )).thenReturn("Zweet Äntwert");
         stubEvaluationResponse();
@@ -168,12 +166,12 @@ class EvaluationAttemptGuardTest {
 
     @Test
     void imageDescriptionEvaluationRequiresImageDescriptionAttempt() {
-        SpeechTranscriptionService transcriptionService = mock(SpeechTranscriptionService.class);
+        SpeechTranscriptionRouter transcriptionRouter = mock(SpeechTranscriptionRouter.class);
         UserProgressService progressService = mock(UserProgressService.class);
         when(progressService.claimEvaluation(
                 7L, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
         )).thenReturn(CLAIMED_AT);
-        when(transcriptionService.transcribeForEvaluation(
+        when(transcriptionRouter.transcribeForEvaluation(
                 audio, 5L, 7L, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
         )).thenReturn("Eng Beschreiwung");
         stubEvaluationResponse();
@@ -191,7 +189,7 @@ class EvaluationAttemptGuardTest {
         );
         service.generateEvaluation(audio, "Bild", 5L, 7L);
 
-        verify(transcriptionService).transcribeForEvaluation(
+        verify(transcriptionRouter).transcribeForEvaluation(
                 audio, 5L, 7L, AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION
         );
         verify(progressService).recordEvaluation(
@@ -214,7 +212,7 @@ class EvaluationAttemptGuardTest {
 
     private SpeakingService speakingService(
             UserProgressService progressService,
-            SpeechTranscriptionService transcriptionService
+            SpeechTranscriptionRouter transcriptionRouter
     ) {
         return new SpeakingService(
                 aiChatClient,
@@ -224,7 +222,7 @@ class EvaluationAttemptGuardTest {
                 progressService,
                 mock(ExerciseConfigService.class),
                 aiQuotaService,
-                transcriptionService,
+                transcriptionRouter,
                 aiRateLimitService
         );
     }
