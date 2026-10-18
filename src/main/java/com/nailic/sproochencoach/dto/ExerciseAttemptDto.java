@@ -1,6 +1,7 @@
 package com.nailic.sproochencoach.dto;
 
 import com.nailic.sproochencoach.model.ExerciseAttemptStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,4 +26,7 @@ public class ExerciseAttemptDto {
     private LocalDateTime generatedAt;
     private LocalDateTime completedAt;
     private LocalDateTime evaluatedAt;
+
+    @Schema(nullable = true)
+    private Long retryOfAttemptId;
 }

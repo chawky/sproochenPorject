@@ -149,7 +149,7 @@ public class AiQuotaService {
     }
 
     private long countUsage(Integer userId, AiQuotaFeature feature, QuotaWindow window) {
-        return exerciseAttemptRepo.countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+        return exerciseAttemptRepo.countByUser_IdAndExerciseTypeAndRetryOfAttemptIdIsNullAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
                 userId,
                 feature.exerciseType(),
                 window.start(),

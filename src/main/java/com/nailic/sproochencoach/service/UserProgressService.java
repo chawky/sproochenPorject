@@ -1,6 +1,8 @@
 package com.nailic.sproochencoach.service;
 
 import com.nailic.sproochencoach.config.AiLeaseProperties;
+import com.nailic.sproochencoach.constants.AppConstants;
+import com.nailic.sproochencoach.dto.RetryExerciseResponse;
 import com.nailic.sproochencoach.dto.CompleteExerciseRequest;
 import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.dto.ExerciseAttemptDto;
@@ -92,6 +94,29 @@ public class UserProgressService {
         attempt.setAnswerType(answerType);
 
         return exerciseAttemptRepo.save(attempt).getId();
+    }
+
+    @Transactional
+    public RetryExerciseResponse retryCurrentUserExercise(Long attemptId) {
+        ExerciseAttempt original = currentUserAttempt(attemptId);
+        if (!AppConstants.ExerciseAttemptTypes.SPEAKING.equals(original.getExerciseType())
+                && !AppConstants.ExerciseAttemptTypes.IMAGE_DESCRIPTION.equals(original.getExerciseType())) {
+            throw new BadRequestException("Exercise type does not support retry");
+        }
+        if (original.getStatus() != ExerciseAttemptStatus.EVALUATED) {
+            throw new BadRequestException("Only evaluated exercises can be retried");
+        }
+
+        ExerciseAttempt retry = new ExerciseAttempt();
+        retry.setUser(original.getUser());
+        retry.setExerciseType(original.getExerciseType());
+        retry.setExerciseName(original.getExerciseName());
+        retry.setLevel(original.getLevel());
+        retry.setTopic(original.getTopic());
+        retry.setAnswerType(original.getAnswerType());
+        retry.setRetryOfAttemptId(original.getId());
+        retry.setGeneratedAt(LocalDateTime.now(clock));
+        return new RetryExerciseResponse(exerciseAttemptRepo.save(retry).getId(), original.getId());
     }
 
     @Transactional
@@ -285,7 +310,8 @@ public class UserProgressService {
                 attempt.getAverageRatingOverall(),
                 attempt.getGeneratedAt(),
                 attempt.getCompletedAt(),
-                attempt.getEvaluatedAt()
+                attempt.getEvaluatedAt(),
+                attempt.getRetryOfAttemptId()
         );
     }
 

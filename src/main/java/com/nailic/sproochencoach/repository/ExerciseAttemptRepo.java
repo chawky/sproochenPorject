@@ -18,7 +18,7 @@ public interface ExerciseAttemptRepo extends JpaRepository<ExerciseAttempt, Long
 
     Page<ExerciseAttempt> findByUser_Id(Integer userId, Pageable pageable);
 
-    long countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+    long countByUser_IdAndExerciseTypeAndRetryOfAttemptIdIsNullAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
             Integer userId,
             String exerciseType,
             LocalDateTime fromInclusive,

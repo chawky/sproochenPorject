@@ -57,3 +57,38 @@ The backend source of truth is /v3/api-docs.
 - Listening endpoint: `POST /api/exercises/listening`.
 - Audio responses include Base64 audio in `data.audio`.
 - Audio responses include English translation in `data.questionTranslation`.
+
+## Redo an evaluated speaking or image-description exercise
+
+`POST /api/exercises/{attemptId}/retry` has no request body. Use the existing
+authentication transport (cookie-authenticated requests also require CSRF).
+It returns HTTP 200 with:
+
+```json
+{
+  "success": true,
+  "message": "Exercise retry created successfully.",
+  "data": { "attemptId": 124, "retryOfAttemptId": 123 }
+}
+```
+
+The original attempt must belong to the current user, have status `EVALUATED`,
+and have category `SPEAKING` or `IMAGE_DESCRIPTION`. Missing attempts, other
+owners, unsupported categories and other statuses return HTTP 400 using the
+existing `ApiResponse` error wrapper. The backend copies metadata into a fresh
+`GENERATED` attempt with empty results; the original history remains unchanged.
+
+Keep the same loaded question/audio/image and replace the active attempt ID only
+after success. Submit the next recording to the existing evaluation endpoint.
+Image description evaluation still requires the original `imageDescription`
+multipart field. This endpoint neither generates nor returns exercise content.
+
+Retries do not consume generation quota or the AI technical request allowance;
+subsequent evaluation still uses the existing evaluation rate limit and guards.
+Each successful retry request creates a new attempt (the endpoint is not
+idempotent); avoid double submission or automatic retries after ambiguous
+network failures. An evaluated retry can itself be retried.
+
+Attempt history DTOs now include nullable `retryOfAttemptId`, referencing the
+immediate source attempt. Original generations have null linkage. Quota counts
+exclude linked retry rows, including retries created in later quota windows.

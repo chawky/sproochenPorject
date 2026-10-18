@@ -153,10 +153,10 @@ class AiQuotaServiceTest {
 
         quotaService(nextWindowClock).reserveCurrentUserQuota(AiQuotaFeature.SPEAKING);
 
-        verify(exerciseAttemptRepo).countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+        verify(exerciseAttemptRepo).countByUser_IdAndExerciseTypeAndRetryOfAttemptIdIsNullAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
                 USER_ID, AiQuotaFeature.SPEAKING.exerciseType(), nextStart, nextEnd
         );
-        verify(exerciseAttemptRepo, never()).countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+        verify(exerciseAttemptRepo, never()).countByUser_IdAndExerciseTypeAndRetryOfAttemptIdIsNullAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
                 USER_ID, AiQuotaFeature.SPEAKING.exerciseType(), WINDOW_START, WINDOW_END
         );
     }
@@ -216,7 +216,7 @@ class AiQuotaServiceTest {
     }
 
     private Long count(AppUser user, AiQuotaFeature feature, LocalDateTime start, LocalDateTime end) {
-        return exerciseAttemptRepo.countByUser_IdAndExerciseTypeAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
+        return exerciseAttemptRepo.countByUser_IdAndExerciseTypeAndRetryOfAttemptIdIsNullAndGeneratedAtGreaterThanEqualAndGeneratedAtLessThan(
                 user.getId(), feature.exerciseType(), start, end
         );
     }

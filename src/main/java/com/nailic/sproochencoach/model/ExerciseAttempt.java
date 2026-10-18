@@ -27,6 +27,10 @@ public class ExerciseAttempt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Null for generated content; linked retries are excluded from generation quotas.
+    @Column
+    private Long retryOfAttemptId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;

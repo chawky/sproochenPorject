@@ -4,6 +4,7 @@ import com.nailic.sproochencoach.dto.ExerciseRequestDto;
 import com.nailic.sproochencoach.exceptions.AiQuotaExceededException;
 import com.nailic.sproochencoach.exceptions.GlobalExceptionHandler;
 import com.nailic.sproochencoach.service.ExerciseService;
+import com.nailic.sproochencoach.service.UserProgressService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,7 +25,7 @@ class ExerciseControllerQuotaTest {
                 .thenThrow(new AiQuotaExceededException("You have reached your weekly Topic Exercise limit. Your allowance resets on 2026-09-15."));
 
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new ExerciseController(exerciseService))
+                .standaloneSetup(new ExerciseController(exerciseService, mock(UserProgressService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
